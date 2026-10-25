@@ -1,0 +1,81 @@
+{
+  "sample_type": "Reference Village Dossier & Evidence-Locked Policy Output",
+  "endpoint_dossier": "GET /api/villages/0421020",
+  "endpoint_policy": "POST /api/ai/agent",
+  "village_profile": {
+    "village_code": "0421020",
+    "village_name": "Gajwel",
+    "mandal_code": "0421",
+    "mandal_name": "Gajwel",
+    "district_code": "04",
+    "district_name": "Medak",
+    "state": "Telangana",
+    "spatial": {
+      "centroid_lat": 17.84608,
+      "centroid_lon": 78.67819,
+      "area_sq_km": 22.42,
+      "minor_irrigation_tanks_total": 4,
+      "minor_irrigation_tanks_gt_40ha": 0,
+      "tank_density_per_10sqkm": 1.78
+    },
+    "demography": {
+      "estimated_population": 5340,
+      "estimated_households": 1169,
+      "child_0_6_percent": 12.12,
+      "effective_literacy_rate": 54.0,
+      "worker_participation_rate": 50.9,
+      "marginal_worker_percent": 16.55
+    },
+    "composite_scores": {
+      "education_score": 52.1,
+      "health_score": 63.9,
+      "water_score": 55.6,
+      "livelihood_score": 77.3,
+      "environment_score": 62.0,
+      "overall_score": 62.2,
+      "vvi_v2": 37.8,
+      "vvi_v2_level": "Resilient / Emerging"
+    },
+    "spatial_facility_reach": {
+      "education": { "nearest_name": "z.p.h.s school", "distance_km": 12.93, "within_10km": 0 },
+      "health": { "nearest_name": "Eshwara Sai Nursing Home", "distance_km": 1.28, "within_10km": 2 },
+      "water": { "nearest_name": "Drinking Water", "distance_km": 12.94, "within_10km": 0 },
+      "livelihood": { "nearest_name": "Integrated Market Gajwel", "distance_km": 0.44, "within_10km": 2 },
+      "environment": { "nearest_name": "Solar", "distance_km": 4.43, "within_10km": 2 }
+    }
+  },
+  "policy_synthesis_schema_example": {
+    "budget_priority_mix": [
+      {
+        "sector": "Education",
+        "allocation_percent": 25,
+        "rationale": "Highest deficit weight (score 52.1/100) driven by 54.0% effective literacy and 12.93 km mapped secondary school distance."
+      },
+      {
+        "sector": "Water",
+        "allocation_percent": 23,
+        "rationale": "Second-highest priority (score 55.6/100) to augment in-premises tap supply and desilt 4 TRACGIS minor irrigation tanks."
+      },
+      {
+        "sector": "Environment",
+        "allocation_percent": 20,
+        "rationale": "Clean cooking LPG refill adoption, Haritha Haram tank-bund plantation, and solar pump feeder expansion."
+      },
+      {
+        "sector": "Health",
+        "allocation_percent": 19,
+        "rationale": "Close remaining household sanitation and greywater drainage gaps while leveraging 1.28 km health facility proximity."
+      },
+      {
+        "sector": "Livelihood",
+        "allocation_percent": 13,
+        "rationale": "Sustain strong 77.3/100 livelihood base (0.44 km from Integrated Market Gajwel) via SHG value-addition credit."
+      }
+    ],
+    "governance_signoff_guardrail": [
+      "Gram Sabha validation of household gap lists and GPDP resolution",
+      "Technical sanction by RWS&S and I&CAD Minor Irrigation engineers",
+      "Administrative and budgetary approval by MPDO (Gajwel Mandal) and District Collectorate"
+    ]
+  }
+}

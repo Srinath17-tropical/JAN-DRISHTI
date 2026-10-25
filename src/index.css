@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Samarkan";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/Samarkan.woff") format("woff"),
+    url("https://fonts.cdnfonts.com/s/5790/SAMARN__.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Samarkan Oblique";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/SamarkanOblique.woff") format("woff"),
+    url("https://fonts.cdnfonts.com/s/5790/SAMARO__.woff") format("woff");
+}
+
+@layer base {
+  body {
+    background-color: #05080d;
+    color: #ffffff;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.font-samarkan {
+  font-family: "Samarkan", "Plus Jakarta Sans", system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+}

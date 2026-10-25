@@ -1,0 +1,6 @@
+{
+  "name": "JAN—DRISHTI Development Intelligence",
+  "description": "Spatially contextualised development intelligence platform across education, health, water, livelihood, environment, and future readiness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
