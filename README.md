@@ -239,14 +239,28 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md#2-data-engineering--spatial-harmonizat
 
 ## Production Deployment
 
-Build the optimized static frontend bundle (`dist/`) and start the unified Node.js production server:
+### Render Web Service (Recommended)
+
+The repository includes [`render.yaml`](./render.yaml) and runs both the compiled React/Vite frontend (`dist/`) and the Express spatial/policy backend (`server.ts`) as a unified Node Web Service on Render:
+
+| Render Setting | Value |
+| :--- | :--- |
+| **Service Type** | **Web Service** (`Node`) |
+| **Build Command** | `bun install && bun run build` |
+| **Start Command** | `npx tsx server.ts` |
+| **Health Check Path** | `/api/health` |
+| **Environment Variables** | `NODE_ENV=production`, `GEMINI_API_KEY=<your_key>` *(optional)* |
+
+### Local / Docker / Self-Hosted Production
+
+Build the optimized static frontend bundle (`dist/`) and start the unified production server:
 
 ```bash
-npm run build
-NODE_ENV=production PORT=3000 npm start
+bun install && bun run build
+NODE_ENV=production PORT=3000 npx tsx server.ts
 ```
 
-The single `server.ts` process serves both the compiled SPA assets (`dist/`) and all `/api/*` endpoints, making it directly deployable to **Docker**, **Google Cloud Run**, **Render**, **Railway**, or any standard Linux VM (`Node.js >= 22` supports native TypeScript execution via `node server.ts`, or `npx tsx server.ts` on `Node.js 20`).
+The single `server.ts` process binds to `0.0.0.0:${PORT}` and serves both the compiled SPA assets (`dist/`) and all `/api/*` endpoints across **Render**, **Docker**, **Google Cloud Run**, **Railway**, or any Linux VM.
 
 ---
 

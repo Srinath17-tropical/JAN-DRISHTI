@@ -10,7 +10,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, "server", "data");
+const DATA_DIR = fs.existsSync(path.join(process.cwd(), "server", "data"))
+  ? path.join(process.cwd(), "server", "data")
+  : path.join(__dirname, "server", "data");
 const PORT = Number(process.env.PORT) || 3000;
 
 /* =========================================================
@@ -1406,20 +1408,31 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     }
   });
 
-  // Vite Middleware in Development / Static Dist in Production
-  if (process.env.NODE_ENV !== "production") {
+  // Return JSON 404 for unknown /api/* routes instead of SPA HTML
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ error: "API endpoint not found" });
+  });
+
+  // Serve pre-built dist/ in Production / Render; use Vite Middleware in local dev
+  const distPath = fs.existsSync(path.join(process.cwd(), "dist", "index.html"))
+    ? path.join(process.cwd(), "dist")
+    : path.join(__dirname, "dist");
+  const shouldServeStaticDist =
+    (process.env.NODE_ENV === "production" || Boolean(process.env.RENDER)) &&
+    fs.existsSync(path.join(distPath, "index.html"));
+
+  if (shouldServeStaticDist) {
+    app.use(express.static(distPath));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, "dist");
-    app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
