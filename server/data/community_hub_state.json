@@ -1,0 +1,405 @@
+{
+  "issues": [
+    {
+      "id": "iss-edu-01",
+      "sector": "education",
+      "title": "Broken Desk Benches & Missing Science Kit in Upper Primary Wing",
+      "description": "Class 6–8 rooms need 14 bench repairs and solar study lamps before pre-board remedial camp.",
+      "institutionName": "ZPHS Siddipet Rural",
+      "villageName": "Narsapur",
+      "districtName": "Medak",
+      "reporterName": "Kavitha Reddy (SMC Parent)",
+      "severity": "High",
+      "status": "mobilizing",
+      "upvotes": 34,
+      "createdAt": "2026-11-15T09:30:00Z",
+      "gpsLabel": "17.7824°N, 78.2641°E · Within 1.4 km",
+      "lat": 17.7824,
+      "lon": 78.2641,
+      "voiceTranscript": "పాఠశాలలో బెంచీలు విరిగిపోయాయి, పిల్లలకు వారాంతపు ట్యూషన్ అవసరం.",
+      "adoptedNgo": "Pratham Deccan Chapter",
+      "csrMatchStatus": "₹18,000 Hardware Micro-Grant Tagged",
+      "needs": [
+        {
+          "id": "n1",
+          "item": "Dual Desk Benches (Repair Kits)",
+          "neededQty": 14,
+          "pledgedQty": 9,
+          "unit": "sets",
+          "pledgers": [
+            "Youth Club Medak",
+            "Ramesh Carpenter"
+          ]
+        },
+        {
+          "id": "n2",
+          "item": "Solar Reading Lamps",
+          "neededQty": 20,
+          "pledgedQty": 12,
+          "unit": "units",
+          "pledgers": [
+            "GreenGrid CSR"
+          ]
+        }
+      ],
+      "peerVerified": false
+    },
+    {
+      "id": "iss-wat-01",
+      "sector": "water",
+      "title": "Feeder Channel Siltation & Main Distribution Valve Leak near Pedda Cheruvu",
+      "description": "Overflow feeder kula has vegetation blockage reducing percolation recharge alongside a slow gate-valve leak.",
+      "institutionName": "Pedda Cheruvu & RWS Overhead Tank",
+      "villageName": "Chinna Shankarampet",
+      "districtName": "Medak",
+      "reporterName": "Mallesh Goud (Neeruganti)",
+      "severity": "Critical",
+      "status": "resolved",
+      "upvotes": 58,
+      "createdAt": "2026-11-10T07:15:00Z",
+      "gpsLabel": "17.9120°N, 78.3185°E · Within 0.8 km",
+      "lat": 17.912,
+      "lon": 78.3185,
+      "voiceTranscript": "చెరువు తూము వద్ద లీకేజీ అరికట్టి కాలువ పూడిక తీత పూర్తి చేయాలి.",
+      "adoptedNgo": "Kakatiya Jala Samithi",
+      "csrMatchStatus": "Gram Sabha Shramdaan + GP Tool Kit Verified",
+      "needs": [
+        {
+          "id": "n3",
+          "item": "Desiltation Spades & Crowbars",
+          "neededQty": 12,
+          "pledgedQty": 12,
+          "unit": "tools",
+          "pledgers": [
+            "Ward 3 Youth Squad"
+          ]
+        },
+        {
+          "id": "n4",
+          "item": "HDPE Pipe Gasket Collars",
+          "neededQty": 4,
+          "pledgedQty": 4,
+          "unit": "kits",
+          "pledgers": [
+            "Panchayat Water Comm."
+          ]
+        }
+      ],
+      "peerVerified": true,
+      "verifiedBy": "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)"
+    },
+    {
+      "id": "iss-hea-01",
+      "sector": "health",
+      "title": "Open Greywater Drain Stagnation & Mosquito Breeding Behind Anganwadi-2",
+      "description": "Post-rain greywater pools behind kitchen shed require soak-pit trenching and lime/larvicide sanitization.",
+      "institutionName": "Anganwadi Centre 02 · SC Colony",
+      "villageName": "Gajwel Ward",
+      "districtName": "Siddipet",
+      "reporterName": "Lakshmi Bai (ASHA Worker)",
+      "severity": "Critical",
+      "status": "open",
+      "upvotes": 41,
+      "createdAt": "2026-11-16T08:00:00Z",
+      "gpsLabel": "17.8542°N, 78.6810°E · Within 0.6 km",
+      "lat": 17.8542,
+      "lon": 78.681,
+      "voiceTranscript": "అంగన్‌వాడీ వెనుక మురుగు నీరు నిలిచి దోమలు పెరుగుతున్నాయి.",
+      "needs": [
+        {
+          "id": "n5",
+          "item": "Soak-Pit Gravel & Bio-Filter Rings",
+          "neededQty": 6,
+          "pledgedQty": 2,
+          "unit": "rings",
+          "pledgers": [
+            "SBM-G Volunteer"
+          ]
+        },
+        {
+          "id": "n6",
+          "item": "Bleaching Powder & Larvicide Sprayers",
+          "neededQty": 8,
+          "pledgedQty": 5,
+          "unit": "packs",
+          "pledgers": [
+            "PHC Sub-Centre"
+          ]
+        }
+      ],
+      "peerVerified": false
+    },
+    {
+      "id": "iss-liv-01",
+      "sector": "livelihood",
+      "title": "SHG Turmeric & Millet Value-Add Packaging Hub Needs Solar Dryer Shelves",
+      "description": "28 women artisans seek direct ONDC/CSR buyer catalogue onboarding and 6 hygienic stainless drying trays.",
+      "institutionName": "Stree Nidhi SHG Bhavan",
+      "villageName": "Kamareddy Cluster",
+      "districtName": "Nizamabad",
+      "reporterName": "Padma Vani (VAO / VO Leader)",
+      "severity": "Moderate",
+      "status": "mobilizing",
+      "upvotes": 29,
+      "createdAt": "2026-11-14T11:20:00Z",
+      "gpsLabel": "18.3204°N, 78.3412°E · Within 2.1 km",
+      "lat": 18.3204,
+      "lon": 78.3412,
+      "adoptedNgo": "Deccan Artisan Collective",
+      "csrMatchStatus": "Matched with Regional FPO Export Buyer",
+      "needs": [
+        {
+          "id": "n7",
+          "item": "Food-Grade Drying Trays",
+          "neededQty": 10,
+          "pledgedQty": 6,
+          "unit": "trays",
+          "pledgers": [
+            "FPO Cooperative"
+          ]
+        },
+        {
+          "id": "n8",
+          "item": "1-Hour E-Commerce Onboarding Mentorship",
+          "neededQty": 4,
+          "pledgedQty": 2,
+          "unit": "sessions",
+          "pledgers": [
+            "Hyd Tech Volunteer"
+          ]
+        }
+      ],
+      "peerVerified": false
+    },
+    {
+      "id": "iss-env-01",
+      "sector": "environment",
+      "title": "Katta Maisamma Tank-Bund Gap: 180 Native Neem & Pongamia Saplings Needed",
+      "description": "Micro-heat island stretch along East Main Road requires avenue tree-guards and e-waste drop box.",
+      "institutionName": "East Bund Green Belt",
+      "villageName": "Nalgonda Rural",
+      "districtName": "Nalgonda",
+      "reporterName": "Srinivas Rao (Eco Club Teacher)",
+      "severity": "Moderate",
+      "status": "open",
+      "upvotes": 24,
+      "createdAt": "2026-11-16T14:10:00Z",
+      "gpsLabel": "17.0575°N, 79.2684°E · Within 1.9 km",
+      "lat": 17.0575,
+      "lon": 79.2684,
+      "needs": [
+        {
+          "id": "n9",
+          "item": "Native Neem / Jamun Saplings",
+          "neededQty": 180,
+          "pledgedQty": 110,
+          "unit": "saplings",
+          "pledgers": [
+            "Haritha Nursery",
+            "Eco Squad"
+          ]
+        },
+        {
+          "id": "n10",
+          "item": "Bamboo Tree Guards",
+          "neededQty": 90,
+          "pledgedQty": 45,
+          "unit": "guards",
+          "pledgers": [
+            "Rotary Rural Wing"
+          ]
+        }
+      ],
+      "peerVerified": false
+    }
+  ],
+  "drives": [
+    {
+      "id": "drv-01",
+      "sector": "water",
+      "title": "Sunday Kakatiya Tank Bund Desiltation & RWH Pit Shramdaan",
+      "dateLabel": "Sun, 22 Nov 2026",
+      "timeSlot": "06:30 AM – 09:30 AM",
+      "landmark": "Pedda Cheruvu Weir Gate, Narsapur",
+      "organizer": "Gram Sabha Water Committee + NSS",
+      "capacity": 45,
+      "rsvpCount": 31,
+      "joinedByUser": false
+    },
+    {
+      "id": "drv-02",
+      "sector": "education",
+      "title": "Weekend STEM Toy Lab & Digital Literacy Camp for ZPHS Class 7–9",
+      "dateLabel": "Sat, 21 Nov 2026",
+      "timeSlot": "10:00 AM – 01:00 PM",
+      "landmark": "ZPHS Library Hall, Mandal HQ",
+      "organizer": "Yuva Vidya Kendra",
+      "capacity": 20,
+      "rsvpCount": 14,
+      "joinedByUser": false
+    },
+    {
+      "id": "drv-03",
+      "sector": "health",
+      "title": "Ward-Wide Cleanliness, Anti-Vector Fogging & Nutrition Screening Drive",
+      "dateLabel": "Sun, 29 Nov 2026",
+      "timeSlot": "07:00 AM – 10:30 AM",
+      "landmark": "Anganwadi-2 & Palle Dawakhana",
+      "organizer": "ASHA & Red Cross Volunteers",
+      "capacity": 35,
+      "rsvpCount": 22,
+      "joinedByUser": false
+    },
+    {
+      "id": "drv-04",
+      "sector": "environment",
+      "title": "E-Waste Drop-Off & 200-Sapling Geo-Tagged Avenue Plantation",
+      "dateLabel": "Sat, 28 Nov 2026",
+      "timeSlot": "07:30 AM – 10:30 AM",
+      "landmark": "Panchayat Bhavan East Bund",
+      "organizer": "Bal Mitra Eco Squad",
+      "capacity": 50,
+      "rsvpCount": 27,
+      "joinedByUser": false
+    }
+  ],
+  "volunteerSlots": [
+    {
+      "id": "vs-01",
+      "schoolName": "ZPHS Narsapur",
+      "subject": "Mathematics & Science Experiments",
+      "dayTime": "Saturday · 10:00 – 11:00 AM",
+      "skillLevel": "STEM Graduate",
+      "slotsOpen": 3,
+      "bookedByUser": false
+    },
+    {
+      "id": "vs-02",
+      "schoolName": "MPPS SC Colony School",
+      "subject": "Telugu Phonics & Reading Circle",
+      "dayTime": "Sunday · 09:30 – 10:30 AM",
+      "skillLevel": "Telugu Bilingual",
+      "slotsOpen": 4,
+      "bookedByUser": false
+    },
+    {
+      "id": "vs-03",
+      "schoolName": "KGBV Girls Residential High School",
+      "subject": "Spoken English & Career Guidance",
+      "dayTime": "Saturday · 03:00 – 04:00 PM",
+      "skillLevel": "Beginner-Friendly",
+      "slotsOpen": 2,
+      "bookedByUser": false
+    }
+  ],
+  "wishlists": [
+    {
+      "id": "wl-01",
+      "sector": "education",
+      "institution": "ZPHS Narsapur Library",
+      "item": "Telugu & English Illustrated Storybooks",
+      "needed": 80,
+      "fulfilled": 54,
+      "unit": "books"
+    },
+    {
+      "id": "wl-02",
+      "sector": "education",
+      "institution": "MPPS Digital Corner",
+      "item": "Solar Study Lamps for Girl Students",
+      "needed": 30,
+      "fulfilled": 21,
+      "unit": "lamps"
+    },
+    {
+      "id": "wl-03",
+      "sector": "health",
+      "institution": "Palle Dawakhana Booth",
+      "item": "Pediatric Pulse Oximeters & Nutrition Kits",
+      "needed": 25,
+      "fulfilled": 18,
+      "unit": "kits"
+    },
+    {
+      "id": "wl-04",
+      "sector": "water",
+      "institution": "Ward 4 Drinking Stand",
+      "item": "Terracotta Cooling Vessels & Filters",
+      "needed": 12,
+      "fulfilled": 8,
+      "unit": "sets"
+    }
+  ],
+  "certificates": [
+    {
+      "id": "bm-01",
+      "studentName": "Ananya Verma (Class 7)",
+      "schoolOrWard": "ZPHS Narsapur · Ward 2",
+      "activity": "Tree-Tagging & Cleanliness Rally",
+      "sector": "environment",
+      "parentConsent": true,
+      "issuedAt": "2026-11-12",
+      "certCode": "JD-JCC-2026-0412"
+    }
+  ],
+  "champions": [
+    {
+      "id": "ch-01",
+      "name": "Kavitha Reddy",
+      "role": "SMC Parent Lead",
+      "sector": "education",
+      "hours": 18,
+      "badge": "Vidya Mitra Gold",
+      "verifiedActions": 6
+    },
+    {
+      "id": "ch-02",
+      "name": "Mallesh Goud",
+      "role": "Neeruganti Steward",
+      "sector": "water",
+      "hours": 32,
+      "badge": "Jala Rakshak",
+      "verifiedActions": 11
+    },
+    {
+      "id": "ch-03",
+      "name": "Lakshmi Bai",
+      "role": "ASHA Community Lead",
+      "sector": "health",
+      "hours": 24,
+      "badge": "Swachh Warrior",
+      "verifiedActions": 9
+    },
+    {
+      "id": "ch-04",
+      "name": "Padma Vani",
+      "role": "SERP SHG Mentor",
+      "sector": "livelihood",
+      "hours": 15,
+      "badge": "Shreni Catalyst",
+      "verifiedActions": 5
+    }
+  ],
+  "ngoDirectory": [
+    {
+      "name": "Pratham Deccan Chapter",
+      "focus": "Education · Foundational Literacy",
+      "wardReach": "18 Mandals"
+    },
+    {
+      "name": "Kakatiya Jala Samithi",
+      "focus": "Water · Chain-Tank Revival",
+      "wardReach": "32 Villages"
+    },
+    {
+      "name": "Deccan Artisan Collective",
+      "focus": "Livelihood · SHG & FPO Links",
+      "wardReach": "14 Clusters"
+    },
+    {
+      "name": "Telangana Green Youth Network",
+      "focus": "Environment · Native Groves & E-Waste",
+      "wardReach": "27 Wards"
+    }
+  ]
+}

@@ -130,6 +130,25 @@ function getVillageGeometry(dc: string, vc: string): any | null {
   return districtVillageGeomCache.get(padded)?.[vc] ?? null;
 }
 
+const TELANGANA_UNIVERSITIES_EXTRA = [
+  { id: "univ_ou", name: "Osmania University", category: "University", lat: 17.4135, lon: 78.5287, operator: "State Public University · Hyderabad" },
+  { id: "univ_jntuh", name: "Jawaharlal Nehru Technological University Hyderabad (JNTUH)", category: "University", lat: 17.4933, lon: 78.3914, operator: "State Technical University · Kukatpally" },
+  { id: "univ_uoh", name: "University of Hyderabad (UoH Central)", category: "University", lat: 17.4567, lon: 78.3264, operator: "Central University · Gachibowli" },
+  { id: "univ_iith", name: "IIT Hyderabad (Kandi Campus)", category: "University", lat: 17.5947, lon: 78.1230, operator: "Institute of National Importance · Sangareddy/Medak" },
+  { id: "univ_iiith", name: "IIIT Hyderabad", category: "University", lat: 17.4449, lon: 78.3498, operator: "Research University · Gachibowli" },
+  { id: "univ_ku", name: "Kakatiya University", category: "University", lat: 18.0273, lon: 79.5594, operator: "State Public University · Warangal" },
+  { id: "univ_nitw", name: "NIT Warangal", category: "University", lat: 17.9835, lon: 79.5308, operator: "Institute of National Importance · Hanamkonda/Warangal" },
+  { id: "univ_pjtsau", name: "Prof. Jayashankar Telangana State Agricultural University (PJTSAU)", category: "University", lat: 17.3227, lon: 78.4143, operator: "Agricultural University · Rajendranagar, Rangareddy" },
+  { id: "univ_tu", name: "Telangana University", category: "University", lat: 18.5985, lon: 78.1980, operator: "State Public University · Dichpally, Nizamabad" },
+  { id: "univ_mgu", name: "Mahatma Gandhi University", category: "University", lat: 17.0725, lon: 79.2869, operator: "State Public University · Nalgonda" },
+  { id: "univ_pu", name: "Palamuru University", category: "University", lat: 16.7582, lon: 78.0124, operator: "State Public University · Mahbubnagar" },
+  { id: "univ_su", name: "Satavahana University", category: "University", lat: 18.4316, lon: 79.1045, operator: "State Public University · Karimnagar" },
+  { id: "univ_rgukt", name: "RGUKT IIIT Basar", category: "University", lat: 18.8816, lon: 77.9219, operator: "State Technological University · Adilabad/Nirmal" },
+  { id: "univ_knruhs", name: "Kaloji Narayana Rao University of Health Sciences", category: "University", lat: 17.9912, lon: 79.5892, operator: "Health Sciences University · Warangal" },
+  { id: "univ_nalsar", name: "NALSAR University of Law", category: "University", lat: 17.6119, lon: 78.5540, operator: "National Law University · Shamirpet, Rangareddy" },
+  { id: "univ_braou", name: "Dr. B.R. Ambedkar Open University", category: "University", lat: 17.4241, lon: 78.4126, operator: "State Open University · Jubilee Hills, Hyderabad" },
+];
+
 function getSectorGis(sector: string): any {
   ensureCoreDataLoaded();
   const normalized = sector.toLowerCase();
@@ -139,8 +158,21 @@ function getSectorGis(sector: string): any {
   const validSectors = ["education", "health", "water", "livelihood", "environment"];
   if (validSectors.includes(normalized)) {
     const data = readJsonFile<any>(path.join("gis", `${normalized}_gis.json`));
+    let facilities = Array.isArray(data.facilities) ? data.facilities : [];
+    if (normalized === "education") {
+      const existingNames = new Set(facilities.map((f: any) => String(f.name ?? "").toLowerCase()));
+      const additions = TELANGANA_UNIVERSITIES_EXTRA.filter(
+        (u) => !existingNames.has(u.name.toLowerCase())
+      );
+      facilities = [...additions, ...facilities];
+    }
     const enriched = {
       ...data,
+      facilities,
+      total_facilities_statewide:
+        normalized === "education"
+          ? Math.max(Number(data.total_facilities_statewide ?? 0), facilities.length)
+          : data.total_facilities_statewide,
       districts: districtsGeoCache,
     };
     sectorGisCache.set(normalized, enriched);
@@ -595,7 +627,7 @@ const AGENT_RESPONSE_SCHEMA = {
 
 async function startServer() {
   const app = express();
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "8mb" }));
 
   // Health & Metadata
   app.get(["/api", "/api/", "/api/health"], (_req, res) => {
@@ -731,6 +763,241 @@ async function startServer() {
     try {
       const payload = getSectorGis(req.params.sector);
       res.json(payload);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Statewide Telangana Insights: Groundwater Observatory, Hospital Capabilities, Waterbodies & Macro Inflation/INR
+  app.get("/api/state/insights", (req, res) => {
+    try {
+      ensureCoreDataLoaded();
+      const healthGis = getSectorGis("health");
+      const eduGis = getSectorGis("education");
+      const waterGis = getSectorGis("water");
+      const districtCode = String(req.query.district_code ?? "").trim().padStart(2, "0");
+
+      const districtGroundwater = [
+        {
+          district_code: "01",
+          district_name: "Adilabad",
+          pre_monsoon_mbgl: 9.4,
+          post_monsoon_mbgl: 4.6,
+          fluctuation_m: 4.8,
+          stage_of_extraction_pct: 42.5,
+          status: "Safe",
+          net_availability_mcm: 1420,
+          primary_aquifer: "Basalt & Gondwana Sandstone",
+          recharge_priority: "Contour trenching, forest-margin check-dams & Godavari tributary percolation",
+        },
+        {
+          district_code: "02",
+          district_name: "Nizamabad",
+          pre_monsoon_mbgl: 12.8,
+          post_monsoon_mbgl: 6.4,
+          fluctuation_m: 6.4,
+          stage_of_extraction_pct: 71.2,
+          status: "Semi-Critical",
+          net_availability_mcm: 1185,
+          primary_aquifer: "Granite & Fractured Gneiss",
+          recharge_priority: "Desiltation of Nizamsagar ayacut feeder tanks & drip irrigation shift",
+        },
+        {
+          district_code: "03",
+          district_name: "Karimnagar",
+          pre_monsoon_mbgl: 11.2,
+          post_monsoon_mbgl: 5.5,
+          fluctuation_m: 5.7,
+          stage_of_extraction_pct: 64.8,
+          status: "Safe",
+          net_availability_mcm: 1510,
+          primary_aquifer: "Archaean Granite Gneiss",
+          recharge_priority: "Kakatiya chain-tank interlinking & SRSP canal seepage capture",
+        },
+        {
+          district_code: "04",
+          district_name: "Medak",
+          pre_monsoon_mbgl: 16.9,
+          post_monsoon_mbgl: 9.8,
+          fluctuation_m: 7.1,
+          stage_of_extraction_pct: 91.4,
+          status: "Critical",
+          net_availability_mcm: 940,
+          primary_aquifer: "Weathered & Fractured Granite",
+          recharge_priority: "Borewell recharge shafts, Manjeera basin check-dams & solar micro-drip",
+        },
+        {
+          district_code: "05",
+          district_name: "Hyderabad",
+          pre_monsoon_mbgl: 15.6,
+          post_monsoon_mbgl: 11.2,
+          fluctuation_m: 4.4,
+          stage_of_extraction_pct: 98.5,
+          status: "Over-Exploited",
+          net_availability_mcm: 195,
+          primary_aquifer: "Hard-Rock Urban Fractured Granite",
+          recharge_priority: "Mandatory rooftop rainwater harvesting, Musi-basin lake revival & greywater reuse",
+        },
+        {
+          district_code: "06",
+          district_name: "Rangareddy",
+          pre_monsoon_mbgl: 17.8,
+          post_monsoon_mbgl: 10.6,
+          fluctuation_m: 7.2,
+          stage_of_extraction_pct: 94.6,
+          status: "Critical",
+          net_availability_mcm: 875,
+          primary_aquifer: "Deccan Granite & Pegmatite",
+          recharge_priority: "Osmansagar/Himayatsagar catchment protection, peri-urban lake desiltation & recharge wells",
+        },
+        {
+          district_code: "07",
+          district_name: "Mahbubnagar",
+          pre_monsoon_mbgl: 14.9,
+          post_monsoon_mbgl: 8.1,
+          fluctuation_m: 6.8,
+          stage_of_extraction_pct: 83.2,
+          status: "Semi-Critical",
+          net_availability_mcm: 1290,
+          primary_aquifer: "Peninsular Gneissic Complex",
+          recharge_priority: "Golusu Kattu chain-tank cascading restoration & drought-resilient millets",
+        },
+        {
+          district_code: "08",
+          district_name: "Nalgonda",
+          pre_monsoon_mbgl: 13.7,
+          post_monsoon_mbgl: 7.2,
+          fluctuation_m: 6.5,
+          stage_of_extraction_pct: 77.4,
+          status: "Semi-Critical",
+          net_availability_mcm: 1360,
+          primary_aquifer: "Granitic Aquifer (Fluoride-Sensitive)",
+          recharge_priority: "Dilution recharge via Mission Kakatiya tanks + treated Mission Bhagiratha potable supply",
+        },
+        {
+          district_code: "09",
+          district_name: "Warangal",
+          pre_monsoon_mbgl: 10.4,
+          post_monsoon_mbgl: 4.9,
+          fluctuation_m: 5.5,
+          stage_of_extraction_pct: 61.8,
+          status: "Safe",
+          net_availability_mcm: 1640,
+          primary_aquifer: "Granite Gneiss & Pakhal Sediments",
+          recharge_priority: "Kakatiya heritage tank bund strengthening & silt organic-manure reuse",
+        },
+        {
+          district_code: "10",
+          district_name: "Khammam",
+          pre_monsoon_mbgl: 8.2,
+          post_monsoon_mbgl: 3.8,
+          fluctuation_m: 4.4,
+          stage_of_extraction_pct: 38.9,
+          status: "Safe",
+          net_availability_mcm: 1890,
+          primary_aquifer: "Gondwana Alluvium & Archean Gneiss",
+          recharge_priority: "Conjunctive Godavari-Kinnerasani tank management & solar feeder optimization",
+        },
+      ];
+
+      const healthcareTiers = [
+        {
+          tier: "Tier 1 · Village Screening",
+          facility_type: "Palle Dawakhana / Sub-Centre / Clinic",
+          serves_what: [
+            "Fever, Malaria, Dengue & Diarrhoea rapid screening",
+            "Antenatal checkups (ANC), immunization & child growth monitoring",
+            "Blood pressure, diabetes NCD screening & essential generic medicines",
+          ],
+          referral_trigger: "High-risk pregnancy, trauma, or acute respiratory distress referred to Tier 2 CHC.",
+          scheme_link: "NHM Telangana · Palle Dawakhana · Poshan 2.0",
+        },
+        {
+          tier: "Tier 2 · Mandal Secondary Care",
+          facility_type: "Primary Health Centre (PHC) & Community Health Centre (CHC)",
+          serves_what: [
+            "24×7 normal & assisted maternal deliveries",
+            "Basic laboratory diagnostics, X-ray, snakebite anti-venom & stabilization",
+            "Dental, ophthalmology & TB DOTS / IDSP weekly surveillance reporting",
+          ],
+          referral_trigger: "Surgical emergencies, ICU/NICU & multi-organ cases referred to Tier 3.",
+          scheme_link: "Telangana Vaidya Vidhana Parishad (TVVP)",
+        },
+        {
+          tier: "Tier 3 · District & Tertiary Referral",
+          facility_type: "District Area Hospital & Empanelled Tertiary Hospitals",
+          serves_what: [
+            "24×7 Emergency Trauma, ICU, NICU & Blood Bank",
+            "Dialysis centres, Cardiology, Oncology & Orthopedic surgery",
+            "Cashless tertiary procedures under Rajiv Aarogyasri (₹10 lakh cover)",
+          ],
+          referral_trigger: "Telemedicine follow-up linked back to village ANM/ASHA.",
+          scheme_link: "Rajiv Aarogyasri · Ayushman Bharat PM-JAY · 108 Ambulance",
+        },
+      ];
+
+      const inflationAndRupee = {
+        headline_cpi_pct: 4.85,
+        food_inflation_pct: 6.42,
+        core_remaining_pct: 3.68,
+        fuel_light_pct: 2.15,
+        food_drivers: [
+          { item: "Vegetables & Perishables", share_pct: 6.0, current_yoy_pct: 11.4, rural_fix: "Village-cluster solar cold storage + FPO direct e-NAM mandis" },
+          { item: "Pulses & Protein", share_pct: 2.4, current_yoy_pct: 8.6, rural_fix: "Mandal dal-mill processing & protective irrigation from Kakatiya tanks" },
+          { item: "Cereals & Staples", share_pct: 9.7, current_yoy_pct: 5.1, rural_fix: "Tank-fed double cropping & PDS buffer-stock smoothing" },
+          { item: "Fuel, Freight & Power", share_pct: 6.8, current_yoy_pct: 2.2, rural_fix: "PM-KUSUM solar pumps cutting diesel irrigation & transport costs" },
+        ],
+        rupee_appreciation_drivers: [
+          {
+            lever: "Clean-Energy Import Substitution",
+            mechanism: "Solar feeders, EV rural mobility & bio-CNG reduce crude/diesel import outflow, narrowing the Current Account Deficit (CAD).",
+            target_2047: "Lower energy import bill strengthens INR structural fundamentals",
+          },
+          {
+            lever: "Agro-Processing & High-Value Exports",
+            mechanism: "Moving villages from raw crop distress-selling to FPO grading, millet processing & GI exports raises FX inflows.",
+            target_2047: "Boosts rural per-capita income toward Vision 2047 USD 18,000 benchmark",
+          },
+          {
+            lever: "Digital Public Infrastructure (UPI) & Services Surplus",
+            mechanism: "Cross-border UPI rails, skilled rural-youth GCC/tech talent & formal banking inclusion deepen domestic capital.",
+            target_2047: "Supports stable USD/INR trajectory alongside USD 30T economy scale",
+          },
+        ],
+      };
+
+      res.json({
+        groundwater_by_district: districtGroundwater,
+        selected_district_groundwater: districtCode
+          ? districtGroundwater.find((d) => d.district_code === districtCode) ?? null
+          : null,
+        healthcare_tiers: healthcareTiers,
+        education_facility_counts: (eduGis.facilities ?? []).reduce(
+          (acc: Record<string, number>, f: any) => {
+            const cat = String(f.category ?? "Other");
+            acc[cat] = (acc[cat] ?? 0) + 1;
+            return acc;
+          },
+          {}
+        ),
+        health_facility_counts: (healthGis.facilities ?? []).reduce(
+          (acc: Record<string, number>, f: any) => {
+            const cat = String(f.category ?? "Other");
+            acc[cat] = (acc[cat] ?? 0) + 1;
+            return acc;
+          },
+          {}
+        ),
+        water_facility_counts: (waterGis.facilities ?? []).reduce(
+          (acc: Record<string, number>, f: any) => {
+            const cat = String(f.category ?? "Other");
+            acc[cat] = (acc[cat] ?? 0) + 1;
+            return acc;
+          },
+          {}
+        ),
+        inflation_and_rupee: inflationAndRupee,
+      });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -1406,6 +1673,583 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
             : "Gemini Intelligence Engine encountered an unexpected error.",
       });
     }
+  });
+
+  /* =========================================================
+     COMMUNITY DEVELOPMENT FACILITY (FULL-STACK PERSISTENT HUB)
+  ========================================================= */
+
+  type CommunitySectorKey = "education" | "health" | "water" | "livelihood" | "environment";
+
+  type CommunityResourceNeed = {
+    id: string;
+    item: string;
+    neededQty: number;
+    pledgedQty: number;
+    unit: string;
+    pledgers: string[];
+  };
+
+  type CommunityActionRoom = {
+    id: string;
+    sector: CommunitySectorKey;
+    title: string;
+    description: string;
+    institutionName: string;
+    villageName: string;
+    districtName: string;
+    reporterName: string;
+    severity: "Critical" | "High" | "Moderate";
+    status: "open" | "mobilizing" | "resolved";
+    upvotes: number;
+    createdAt: string;
+    gpsLabel: string;
+    lat: number;
+    lon: number;
+    voiceTranscript?: string;
+    audioDataUrl?: string;
+    videoClipLabel?: string;
+    beforePhotoUrl?: string;
+    afterPhotoUrl?: string;
+    peerVerified: boolean;
+    verifiedBy?: string;
+    adoptedNgo?: string;
+    csrMatchStatus?: string;
+    needs: CommunityResourceNeed[];
+  };
+
+  type CommunityDrive = {
+    id: string;
+    sector: CommunitySectorKey;
+    title: string;
+    dateLabel: string;
+    timeSlot: string;
+    landmark: string;
+    organizer: string;
+    capacity: number;
+    rsvpCount: number;
+    joinedByUser: boolean;
+  };
+
+  type VolunteerTeachingSlot = {
+    id: string;
+    schoolName: string;
+    subject: string;
+    dayTime: string;
+    skillLevel: "Beginner-Friendly" | "STEM Graduate" | "Telugu Bilingual";
+    slotsOpen: number;
+    bookedByUser: boolean;
+  };
+
+  type InstitutionWishlist = {
+    id: string;
+    sector: CommunitySectorKey;
+    institution: string;
+    item: string;
+    needed: number;
+    fulfilled: number;
+    unit: string;
+  };
+
+  type BalMitraCert = {
+    id: string;
+    studentName: string;
+    schoolOrWard: string;
+    activity: string;
+    sector: CommunitySectorKey;
+    parentConsent: boolean;
+    issuedAt: string;
+    certCode: string;
+  };
+
+  type CivicChampionEntry = {
+    id: string;
+    name: string;
+    role: string;
+    sector: CommunitySectorKey;
+    hours: number;
+    badge: string;
+    verifiedActions: number;
+  };
+
+  type CommunityHubState = {
+    issues: CommunityActionRoom[];
+    drives: CommunityDrive[];
+    volunteerSlots: VolunteerTeachingSlot[];
+    wishlists: InstitutionWishlist[];
+    certificates: BalMitraCert[];
+    champions: CivicChampionEntry[];
+    ngoDirectory: { name: string; focus: string; wardReach: string }[];
+  };
+
+  const COMMUNITY_STATE_FILE = path.join(DATA_DIR, "community_hub_state.json");
+
+  function createSeedCommunityState(): CommunityHubState {
+    return {
+      issues: [
+        {
+          id: "iss-edu-01",
+          sector: "education",
+          title: "Broken Desk Benches & Missing Science Kit in Upper Primary Wing",
+          description: "Class 6–8 rooms need 14 bench repairs and solar study lamps before pre-board remedial camp.",
+          institutionName: "ZPHS Siddipet Rural",
+          villageName: "Narsapur",
+          districtName: "Medak",
+          reporterName: "Kavitha Reddy (SMC Parent)",
+          severity: "High",
+          status: "mobilizing",
+          upvotes: 34,
+          createdAt: "2026-11-15T09:30:00Z",
+          gpsLabel: "17.7824°N, 78.2641°E · Within 1.4 km",
+          lat: 17.7824,
+          lon: 78.2641,
+          voiceTranscript: "పాఠశాలలో బెంచీలు విరిగిపోయాయి, పిల్లలకు వారాంతపు ట్యూషన్ అవసరం.",
+          adoptedNgo: "Pratham Deccan Chapter",
+          csrMatchStatus: "₹18,000 Hardware Micro-Grant Tagged",
+          needs: [
+            { id: "n1", item: "Dual Desk Benches (Repair Kits)", neededQty: 14, pledgedQty: 9, unit: "sets", pledgers: ["Youth Club Medak", "Ramesh Carpenter"] },
+            { id: "n2", item: "Solar Reading Lamps", neededQty: 20, pledgedQty: 12, unit: "units", pledgers: ["GreenGrid CSR"] },
+          ],
+          peerVerified: false,
+        },
+        {
+          id: "iss-wat-01",
+          sector: "water",
+          title: "Feeder Channel Siltation & Main Distribution Valve Leak near Pedda Cheruvu",
+          description: "Overflow feeder kula has vegetation blockage reducing percolation recharge alongside a slow gate-valve leak.",
+          institutionName: "Pedda Cheruvu & RWS Overhead Tank",
+          villageName: "Chinna Shankarampet",
+          districtName: "Medak",
+          reporterName: "Mallesh Goud (Neeruganti)",
+          severity: "Critical",
+          status: "resolved",
+          upvotes: 58,
+          createdAt: "2026-11-10T07:15:00Z",
+          gpsLabel: "17.9120°N, 78.3185°E · Within 0.8 km",
+          lat: 17.912,
+          lon: 78.3185,
+          voiceTranscript: "చెరువు తూము వద్ద లీకేజీ అరికట్టి కాలువ పూడిక తీత పూర్తి చేయాలి.",
+          adoptedNgo: "Kakatiya Jala Samithi",
+          csrMatchStatus: "Gram Sabha Shramdaan + GP Tool Kit Verified",
+          needs: [
+            { id: "n3", item: "Desiltation Spades & Crowbars", neededQty: 12, pledgedQty: 12, unit: "tools", pledgers: ["Ward 3 Youth Squad"] },
+            { id: "n4", item: "HDPE Pipe Gasket Collars", neededQty: 4, pledgedQty: 4, unit: "kits", pledgers: ["Panchayat Water Comm."] },
+          ],
+          peerVerified: true,
+          verifiedBy: "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)",
+        },
+        {
+          id: "iss-hea-01",
+          sector: "health",
+          title: "Open Greywater Drain Stagnation & Mosquito Breeding Behind Anganwadi-2",
+          description: "Post-rain greywater pools behind kitchen shed require soak-pit trenching and lime/larvicide sanitization.",
+          institutionName: "Anganwadi Centre 02 · SC Colony",
+          villageName: "Gajwel Ward",
+          districtName: "Siddipet",
+          reporterName: "Lakshmi Bai (ASHA Worker)",
+          severity: "Critical",
+          status: "open",
+          upvotes: 41,
+          createdAt: "2026-11-16T08:00:00Z",
+          gpsLabel: "17.8542°N, 78.6810°E · Within 0.6 km",
+          lat: 17.8542,
+          lon: 78.681,
+          voiceTranscript: "అంగన్‌వాడీ వెనుక మురుగు నీరు నిలిచి దోమలు పెరుగుతున్నాయి.",
+          needs: [
+            { id: "n5", item: "Soak-Pit Gravel & Bio-Filter Rings", neededQty: 6, pledgedQty: 2, unit: "rings", pledgers: ["SBM-G Volunteer"] },
+            { id: "n6", item: "Bleaching Powder & Larvicide Sprayers", neededQty: 8, pledgedQty: 5, unit: "packs", pledgers: ["PHC Sub-Centre"] },
+          ],
+          peerVerified: false,
+        },
+        {
+          id: "iss-liv-01",
+          sector: "livelihood",
+          title: "SHG Turmeric & Millet Value-Add Packaging Hub Needs Solar Dryer Shelves",
+          description: "28 women artisans seek direct ONDC/CSR buyer catalogue onboarding and 6 hygienic stainless drying trays.",
+          institutionName: "Stree Nidhi SHG Bhavan",
+          villageName: "Kamareddy Cluster",
+          districtName: "Nizamabad",
+          reporterName: "Padma Vani (VAO / VO Leader)",
+          severity: "Moderate",
+          status: "mobilizing",
+          upvotes: 29,
+          createdAt: "2026-11-14T11:20:00Z",
+          gpsLabel: "18.3204°N, 78.3412°E · Within 2.1 km",
+          lat: 18.3204,
+          lon: 78.3412,
+          adoptedNgo: "Deccan Artisan Collective",
+          csrMatchStatus: "Matched with Regional FPO Export Buyer",
+          needs: [
+            { id: "n7", item: "Food-Grade Drying Trays", neededQty: 10, pledgedQty: 6, unit: "trays", pledgers: ["FPO Cooperative"] },
+            { id: "n8", item: "1-Hour E-Commerce Onboarding Mentorship", neededQty: 4, pledgedQty: 2, unit: "sessions", pledgers: ["Hyd Tech Volunteer"] },
+          ],
+          peerVerified: false,
+        },
+        {
+          id: "iss-env-01",
+          sector: "environment",
+          title: "Katta Maisamma Tank-Bund Gap: 180 Native Neem & Pongamia Saplings Needed",
+          description: "Micro-heat island stretch along East Main Road requires avenue tree-guards and e-waste drop box.",
+          institutionName: "East Bund Green Belt",
+          villageName: "Nalgonda Rural",
+          districtName: "Nalgonda",
+          reporterName: "Srinivas Rao (Eco Club Teacher)",
+          severity: "Moderate",
+          status: "open",
+          upvotes: 24,
+          createdAt: "2026-11-16T14:10:00Z",
+          gpsLabel: "17.0575°N, 79.2684°E · Within 1.9 km",
+          lat: 17.0575,
+          lon: 79.2684,
+          needs: [
+            { id: "n9", item: "Native Neem / Jamun Saplings", neededQty: 180, pledgedQty: 110, unit: "saplings", pledgers: ["Haritha Nursery", "Eco Squad"] },
+            { id: "n10", item: "Bamboo Tree Guards", neededQty: 90, pledgedQty: 45, unit: "guards", pledgers: ["Rotary Rural Wing"] },
+          ],
+          peerVerified: false,
+        },
+      ],
+      drives: [
+        {
+          id: "drv-01",
+          sector: "water",
+          title: "Sunday Kakatiya Tank Bund Desiltation & RWH Pit Shramdaan",
+          dateLabel: "Sun, 22 Nov 2026",
+          timeSlot: "06:30 AM – 09:30 AM",
+          landmark: "Pedda Cheruvu Weir Gate, Narsapur",
+          organizer: "Gram Sabha Water Committee + NSS",
+          capacity: 45,
+          rsvpCount: 31,
+          joinedByUser: false,
+        },
+        {
+          id: "drv-02",
+          sector: "education",
+          title: "Weekend STEM Toy Lab & Digital Literacy Camp for ZPHS Class 7–9",
+          dateLabel: "Sat, 21 Nov 2026",
+          timeSlot: "10:00 AM – 01:00 PM",
+          landmark: "ZPHS Library Hall, Mandal HQ",
+          organizer: "Yuva Vidya Kendra",
+          capacity: 20,
+          rsvpCount: 14,
+          joinedByUser: false,
+        },
+        {
+          id: "drv-03",
+          sector: "health",
+          title: "Ward-Wide Cleanliness, Anti-Vector Fogging & Nutrition Screening Drive",
+          dateLabel: "Sun, 29 Nov 2026",
+          timeSlot: "07:00 AM – 10:30 AM",
+          landmark: "Anganwadi-2 & Palle Dawakhana",
+          organizer: "ASHA & Red Cross Volunteers",
+          capacity: 35,
+          rsvpCount: 22,
+          joinedByUser: false,
+        },
+        {
+          id: "drv-04",
+          sector: "environment",
+          title: "E-Waste Drop-Off & 200-Sapling Geo-Tagged Avenue Plantation",
+          dateLabel: "Sat, 28 Nov 2026",
+          timeSlot: "07:30 AM – 10:30 AM",
+          landmark: "Panchayat Bhavan East Bund",
+          organizer: "Bal Mitra Eco Squad",
+          capacity: 50,
+          rsvpCount: 27,
+          joinedByUser: false,
+        },
+      ],
+      volunteerSlots: [
+        {
+          id: "vs-01",
+          schoolName: "ZPHS Narsapur",
+          subject: "Mathematics & Science Experiments",
+          dayTime: "Saturday · 10:00 – 11:00 AM",
+          skillLevel: "STEM Graduate",
+          slotsOpen: 3,
+          bookedByUser: false,
+        },
+        {
+          id: "vs-02",
+          schoolName: "MPPS SC Colony School",
+          subject: "Telugu Phonics & Reading Circle",
+          dayTime: "Sunday · 09:30 – 10:30 AM",
+          skillLevel: "Telugu Bilingual",
+          slotsOpen: 4,
+          bookedByUser: false,
+        },
+        {
+          id: "vs-03",
+          schoolName: "KGBV Girls Residential High School",
+          subject: "Spoken English & Career Guidance",
+          dayTime: "Saturday · 03:00 – 04:00 PM",
+          skillLevel: "Beginner-Friendly",
+          slotsOpen: 2,
+          bookedByUser: false,
+        },
+      ],
+      wishlists: [
+        { id: "wl-01", sector: "education", institution: "ZPHS Narsapur Library", item: "Telugu & English Illustrated Storybooks", needed: 80, fulfilled: 54, unit: "books" },
+        { id: "wl-02", sector: "education", institution: "MPPS Digital Corner", item: "Solar Study Lamps for Girl Students", needed: 30, fulfilled: 21, unit: "lamps" },
+        { id: "wl-03", sector: "health", institution: "Palle Dawakhana Booth", item: "Pediatric Pulse Oximeters & Nutrition Kits", needed: 25, fulfilled: 18, unit: "kits" },
+        { id: "wl-04", sector: "water", institution: "Ward 4 Drinking Stand", item: "Terracotta Cooling Vessels & Filters", needed: 12, fulfilled: 8, unit: "sets" },
+      ],
+      certificates: [
+        {
+          id: "bm-01",
+          studentName: "Ananya Verma (Class 7)",
+          schoolOrWard: "ZPHS Narsapur · Ward 2",
+          activity: "Tree-Tagging & Cleanliness Rally",
+          sector: "environment",
+          parentConsent: true,
+          issuedAt: "2026-11-12",
+          certCode: "JD-JCC-2026-0412",
+        },
+      ],
+      champions: [
+        { id: "ch-01", name: "Kavitha Reddy", role: "SMC Parent Lead", sector: "education", hours: 18, badge: "Vidya Mitra Gold", verifiedActions: 6 },
+        { id: "ch-02", name: "Mallesh Goud", role: "Neeruganti Steward", sector: "water", hours: 32, badge: "Jala Rakshak", verifiedActions: 11 },
+        { id: "ch-03", name: "Lakshmi Bai", role: "ASHA Community Lead", sector: "health", hours: 24, badge: "Swachh Warrior", verifiedActions: 9 },
+        { id: "ch-04", name: "Padma Vani", role: "SERP SHG Mentor", sector: "livelihood", hours: 15, badge: "Shreni Catalyst", verifiedActions: 5 },
+      ],
+      ngoDirectory: [
+        { name: "Pratham Deccan Chapter", focus: "Education · Foundational Literacy", wardReach: "18 Mandals" },
+        { name: "Kakatiya Jala Samithi", focus: "Water · Chain-Tank Revival", wardReach: "32 Villages" },
+        { name: "Deccan Artisan Collective", focus: "Livelihood · SHG & FPO Links", wardReach: "14 Clusters" },
+        { name: "Telangana Green Youth Network", focus: "Environment · Native Groves & E-Waste", wardReach: "27 Wards" },
+      ],
+    };
+  }
+
+  let communityCache: CommunityHubState | null = null;
+
+  function getCommunityState(): CommunityHubState {
+    if (communityCache) return communityCache;
+    try {
+      if (fs.existsSync(COMMUNITY_STATE_FILE)) {
+        const parsed = JSON.parse(fs.readFileSync(COMMUNITY_STATE_FILE, "utf8")) as CommunityHubState;
+        if (parsed && Array.isArray(parsed.issues)) {
+          communityCache = parsed;
+          return communityCache;
+        }
+      }
+    } catch (err) {
+      console.warn("Community state load fallback to seed:", err);
+    }
+    communityCache = createSeedCommunityState();
+    saveCommunityState(communityCache);
+    return communityCache;
+  }
+
+  function saveCommunityState(state: CommunityHubState) {
+    communityCache = state;
+    try {
+      fs.writeFileSync(COMMUNITY_STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+    } catch {
+      // Non-fatal in read-only sandbox environments; kept in-memory
+    }
+  }
+
+  app.get("/api/community/state", (_req, res) => {
+    res.json(getCommunityState());
+  });
+
+  app.post("/api/community/issues", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
+      ? b.sector
+      : "water";
+    const newIssue: CommunityActionRoom = {
+      id: `iss-${Date.now()}`,
+      sector,
+      title: String(b.title || "Citizen Field Gap Report").slice(0, 140),
+      description: String(b.description || "Verified multi-modal citizen report from ward capture.").slice(0, 500),
+      institutionName: String(b.institutionName || "Village Public Asset").slice(0, 120),
+      villageName: String(b.villageName || "Telangana Ward").slice(0, 80),
+      districtName: String(b.districtName || "Telangana").slice(0, 80),
+      reporterName: String(b.reporterName || "Citizen Volunteer").slice(0, 80),
+      severity: ["Critical", "High", "Moderate"].includes(b.severity) ? b.severity : "High",
+      status: "open",
+      upvotes: 1,
+      createdAt: new Date().toISOString(),
+      gpsLabel: String(b.gpsLabel || "17.78°N, 78.26°E · Hyperlocal Pin"),
+      lat: Number(b.lat) || 17.78,
+      lon: Number(b.lon) || 78.26,
+      voiceTranscript: b.voiceTranscript ? String(b.voiceTranscript).slice(0, 300) : undefined,
+      audioDataUrl: typeof b.audioDataUrl === "string" ? b.audioDataUrl : undefined,
+      videoClipLabel: b.videoClipLabel ? String(b.videoClipLabel).slice(0, 100) : undefined,
+      beforePhotoUrl: typeof b.beforePhotoUrl === "string" ? b.beforePhotoUrl : undefined,
+      peerVerified: false,
+      needs: Array.isArray(b.needs) && b.needs.length > 0
+        ? b.needs
+        : [
+            {
+              id: `n-${Date.now()}`,
+              item: sector === "education" ? "Classroom Supplies & Mentor Hours" : sector === "water" ? "Pipe Collar & Shramdaan Tools" : "Community Mobilization Kit",
+              neededQty: 6,
+              pledgedQty: 0,
+              unit: "units",
+              pledgers: [],
+            },
+          ],
+    };
+    state.issues.unshift(newIssue);
+    saveCommunityState(state);
+    res.status(201).json({ issue: newIssue, state });
+  });
+
+  app.post("/api/community/issues/:id/upvote", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    issue.upvotes += 1;
+    saveCommunityState(state);
+    res.json({ issue, state });
+  });
+
+  app.post("/api/community/issues/:id/adopt", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    const ngo = String(req.body?.ngoName || "Pratham Deccan Chapter");
+    issue.adoptedNgo = ngo;
+    issue.csrMatchStatus = "CSR / Institutional Adoption Active";
+    if (issue.status === "open") issue.status = "mobilizing";
+    saveCommunityState(state);
+    res.json({ issue, state });
+  });
+
+  app.post("/api/community/issues/:id/pledge", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    const needId = String(req.body?.needId || "");
+    const pledger = String(req.body?.pledgerName || "Community Citizen");
+    const need = issue.needs.find((n) => n.id === needId) ?? issue.needs[0];
+    if (need) {
+      need.pledgedQty = Math.min(need.neededQty, need.pledgedQty + 1);
+      if (!need.pledgers.includes(pledger)) need.pledgers.push(pledger);
+      if (issue.status === "open") issue.status = "mobilizing";
+    }
+    saveCommunityState(state);
+    res.json({ issue, state });
+  });
+
+  app.post("/api/community/issues/:id/resolve", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    const verifier = String(req.body?.verifierName || "Neighborhood Peer Audit");
+    issue.status = "resolved";
+    issue.peerVerified = Boolean(req.body?.peerVerified ?? true);
+    issue.verifiedBy = `${verifier} · Verified`;
+    if (typeof req.body?.afterPhotoUrl === "string") {
+      issue.afterPhotoUrl = req.body.afterPhotoUrl;
+    }
+    const champ = state.champions.find((c) => c.name === verifier);
+    if (champ) {
+      champ.hours += 4;
+      champ.verifiedActions += 1;
+    } else {
+      state.champions.unshift({
+        id: `ch-${Date.now()}`,
+        name: verifier,
+        role: "Verified Citizen Steward",
+        sector: issue.sector,
+        hours: 4,
+        badge: "Shramdaan Verifier",
+        verifiedActions: 1,
+      });
+    }
+    saveCommunityState(state);
+    res.json({ issue, state });
+  });
+
+  app.post("/api/community/drives", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
+      ? b.sector
+      : "water";
+    const drv: CommunityDrive = {
+      id: `drv-${Date.now()}`,
+      sector,
+      title: String(b.title || "Weekend Shramdaan Drive").slice(0, 120),
+      dateLabel: String(b.dateLabel || "Sun, 06 Dec 2026"),
+      timeSlot: String(b.timeSlot || "07:00 AM – 09:30 AM"),
+      landmark: String(b.landmark || "Gram Panchayat Kendra"),
+      organizer: String(b.organizer || "Citizen Action Group"),
+      capacity: Math.max(5, Number(b.capacity) || 30),
+      rsvpCount: 1,
+      joinedByUser: true,
+    };
+    state.drives.unshift(drv);
+    saveCommunityState(state);
+    res.status(201).json({ drive: drv, state });
+  });
+
+  app.post("/api/community/drives/:id/rsvp", (req, res) => {
+    const state = getCommunityState();
+    const drv = state.drives.find((d) => d.id === req.params.id);
+    if (!drv) return res.status(404).json({ error: "Drive not found" });
+    drv.joinedByUser = !drv.joinedByUser;
+    drv.rsvpCount = Math.max(0, drv.rsvpCount + (drv.joinedByUser ? 1 : -1));
+    saveCommunityState(state);
+    res.json({ drive: drv, state });
+  });
+
+  app.post("/api/community/volunteer-slots/:id/book", (req, res) => {
+    const state = getCommunityState();
+    const slot = state.volunteerSlots.find((s) => s.id === req.params.id);
+    if (!slot) return res.status(404).json({ error: "Slot not found" });
+    if (!slot.bookedByUser && slot.slotsOpen > 0) {
+      slot.bookedByUser = true;
+      slot.slotsOpen -= 1;
+    } else if (slot.bookedByUser) {
+      slot.bookedByUser = false;
+      slot.slotsOpen += 1;
+    }
+    saveCommunityState(state);
+    res.json({ slot, state });
+  });
+
+  app.post("/api/community/wishlist/:id/pledge", (req, res) => {
+    const state = getCommunityState();
+    const item = state.wishlists.find((w) => w.id === req.params.id);
+    if (!item) return res.status(404).json({ error: "Wishlist item not found" });
+    item.fulfilled = Math.min(item.needed, item.fulfilled + 1);
+    saveCommunityState(state);
+    res.json({ item, state });
+  });
+
+  app.post("/api/community/bal-mitra", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
+      ? b.sector
+      : "environment";
+    const cert: BalMitraCert = {
+      id: `bm-${Date.now()}`,
+      studentName: String(b.studentName || "Young Civic Champion").slice(0, 80),
+      schoolOrWard: String(b.schoolOrWard || "Village School").slice(0, 80),
+      activity: String(b.activity || "Wall Painting & Tree-Tagging").slice(0, 100),
+      sector,
+      parentConsent: Boolean(b.parentConsent),
+      issuedAt: new Date().toISOString().slice(0, 10),
+      certCode: `JD-JCC-${new Date().getFullYear()}-${String(1000 + state.certificates.length + 1)}`,
+    };
+    state.certificates.unshift(cert);
+    state.champions.unshift({
+      id: `ch-bm-${Date.now()}`,
+      name: cert.studentName,
+      role: "Bal Mitra / Yuva Squad",
+      sector,
+      hours: 2,
+      badge: "Junior Civic Champion",
+      verifiedActions: 1,
+    });
+    saveCommunityState(state);
+    res.status(201).json({ certificate: cert, state });
   });
 
   // Return JSON 404 for unknown /api/* routes instead of SPA HTML

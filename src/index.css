@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
   font-family: "Samarkan";
@@ -20,12 +21,31 @@
     url("https://fonts.cdnfonts.com/s/5790/SAMARO__.woff") format("woff");
 }
 
+:root {
+  --jd-bg: #f4f7fb;
+  --jd-surface: #ffffff;
+  --jd-card: #ffffff;
+  --jd-border: rgba(15, 23, 42, 0.12);
+  --jd-text: #0f172a;
+  --jd-text-muted: #475569;
+}
+
+.dark {
+  --jd-bg: #05080d;
+  --jd-surface: #070b12;
+  --jd-card: #080d16;
+  --jd-border: rgba(255, 255, 255, 0.12);
+  --jd-text: #ffffff;
+  --jd-text-muted: rgba(255, 255, 255, 0.65);
+}
+
 @layer base {
   body {
-    background-color: #05080d;
-    color: #ffffff;
+    background-color: var(--jd-bg);
+    color: var(--jd-text);
     font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   .tabular-nums {
@@ -38,4 +58,99 @@
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.08;
+}
+
+/* Light-theme readable surface helpers for legacy dark utility classes inside page shell */
+html:not(.dark) main.jd-shell {
+  background-color: #f4f7fb;
+  color: #0f172a;
+}
+
+html:not(.dark) main.jd-shell header.jd-topbar {
+  background-color: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html:not(.dark) main.jd-shell aside.jd-sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html:not(.dark) main.jd-shell .jd-keep-dark {
+  color: #ffffff;
+}
+
+html:not(.dark) main.jd-shell .text-white {
+  color: #0f172a;
+}
+html:not(.dark) main.jd-shell .text-white\/90 {
+  color: #1e293b;
+}
+html:not(.dark) main.jd-shell .text-white\/85,
+html:not(.dark) main.jd-shell .text-white\/80,
+html:not(.dark) main.jd-shell .text-white\/75,
+html:not(.dark) main.jd-shell .text-white\/70 {
+  color: #334155;
+}
+html:not(.dark) main.jd-shell .text-white\/65,
+html:not(.dark) main.jd-shell .text-white\/60,
+html:not(.dark) main.jd-shell .text-white\/55,
+html:not(.dark) main.jd-shell .text-white\/50 {
+  color: #475569;
+}
+html:not(.dark) main.jd-shell .text-white\/45,
+html:not(.dark) main.jd-shell .text-white\/40,
+html:not(.dark) main.jd-shell .text-white\/35,
+html:not(.dark) main.jd-shell .text-white\/30 {
+  color: #64748b;
+}
+
+html:not(.dark) main.jd-shell .bg-\[\#05080d\],
+html:not(.dark) main.jd-shell .bg-\[\#050910\],
+html:not(.dark) main.jd-shell .bg-\[\#050910\]\/50,
+html:not(.dark) main.jd-shell .bg-\[\#060c12\],
+html:not(.dark) main.jd-shell .bg-\[\#070b12\],
+html:not(.dark) main.jd-shell .bg-\[\#080d14\],
+html:not(.dark) main.jd-shell .bg-\[\#080d16\],
+html:not(.dark) main.jd-shell .bg-\[\#080e17\],
+html:not(.dark) main.jd-shell .bg-\[\#04080e\],
+html:not(.dark) main.jd-shell .bg-black\/30,
+html:not(.dark) main.jd-shell .bg-black\/40 {
+  background-color: #ffffff;
+}
+
+html:not(.dark) main.jd-shell .bg-white\/\[0\.02\],
+html:not(.dark) main.jd-shell .bg-white\/\[0\.03\],
+html:not(.dark) main.jd-shell .bg-white\/\[0\.015\],
+html:not(.dark) main.jd-shell .bg-white\/5 {
+  background-color: #f8fafc;
+}
+
+html:not(.dark) main.jd-shell .border-white\/10,
+html:not(.dark) main.jd-shell .border-white\/12,
+html:not(.dark) main.jd-shell .border-white\/15,
+html:not(.dark) main.jd-shell .border-white\/5 {
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html:not(.dark) main.jd-shell .domain-card {
+  background: linear-gradient(155deg, rgba(var(--domain-rgb), 0.12) 0%, #ffffff 78%);
+}
+
+html:not(.dark) main.jd-shell .domain-card:hover {
+  background: linear-gradient(155deg, rgba(var(--domain-rgb), 0.18) 0%, #ffffff 75%);
+}
+
+html:not(.dark) main.jd-shell .domain-card:hover .domain-card-cta {
+  color: #0f172a;
+}
+
+/* Preserve crisp dark text contrast inside explicit Leaflet GIS maps in both themes */
+html:not(.dark) main.jd-shell .leaflet-container {
+  background-color: #04080e;
+  color: #ffffff;
+}
+html:not(.dark) main.jd-shell .leaflet-container .text-white,
+html:not(.dark) main.jd-shell .leaflet-popup-content-wrapper {
+  color: #ffffff;
 }

@@ -30,10 +30,12 @@ import {
   Leaf,
   Loader2,
   Map,
+  Moon,
   Network,
   Search,
   ShieldCheck,
   Sparkles,
+  Sun,
   Target,
   TrendingUp,
   Users,
@@ -47,6 +49,42 @@ import {
 } from "../components/ai/IntelligenceStudio";
 import AnalyticsPanel from "../components/analytics/AnalyticsPanel";
 import { loadVillageGIS } from "../lib/gis";
+import {
+  LANGUAGE_OPTIONS,
+  translateDomainLabel,
+  UI_TRANSLATIONS,
+  type LanguageCode,
+} from "../lib/i18n";
+import ViciousToVirtuousCycle, {
+  ViciousCycleCinematicOverlay,
+} from "../components/ViciousToVirtuousCycle";
+import MacroInflationRupeePanel, {
+  type MacroInflationData,
+} from "../components/MacroInflationRupeePanel";
+import StoryboardVideoStudio from "../components/StoryboardVideoStudio";
+import {
+  EducationInstitutionsPanel,
+  EnvironmentWaterbodiesPanel,
+  HealthcareServiceMatrixPanel,
+  LivelihoodVisualPlanPanel,
+  WaterGroundwaterPanel,
+  type DistrictGroundwaterRow,
+  type HealthcareTierInfo,
+  type SectorInsightsVillage,
+} from "../components/SectorActionModules";
+import SectorGraphicalVisual, {
+  type GraphicalDomain,
+} from "../components/SectorGraphicalVisual";
+import PredictionHorizonStudio from "../components/PredictionHorizonStudio";
+import AncientWisdomVisual, {
+  type AncientWisdomDomain,
+} from "../components/AncientWisdomVisual";
+import CommunityDevelopmentHub from "../components/CommunityDevelopmentHub";
+import {
+  SDG_SECTOR_ASSETS,
+  SdgGoalBadge,
+  type SdgSectorId,
+} from "../components/SdgVisualAssets";
 
 const DevelopmentMap = dynamic(
   () => import("../components/gis/DevelopmentMap"),
@@ -78,6 +116,7 @@ const SatelliteMap = dynamic(
 
 type Section =
   | "overview"
+  | "community"
   | "education"
   | "health"
   | "water"
@@ -193,6 +232,7 @@ type VillageData = {
   };
   health: {
     latrine_within_pct: number;
+    open_defecation_pct?: number;
     clean_cooking_fuel_pct: number;
     good_housing_pct: number;
     closed_drainage_pct: number;
@@ -205,6 +245,7 @@ type VillageData = {
     treated_tap_pct: number;
     water_within_premises_pct: number;
     tanks_total: number;
+    tanks_gt_40ha?: number;
     tank_density_per_10sqkm: number;
     nearest_water_km: number;
     nearest_water_name: string;
@@ -229,6 +270,7 @@ type VillageData = {
     solar_lighting_pct: number;
     electricity_lighting_pct: number;
     current_temp_c: number;
+    forecast_7d_rain_mm?: number;
     avg_solar_radiation_mj_m2: number;
     pm2_5: number;
     us_aqi: number;
@@ -259,10 +301,18 @@ type VillageData = {
   };
   gis: {
     available: boolean;
+    lat?: number;
+    lon?: number;
     area_sq_km: number;
     mandal_code: string;
     geometry?: unknown;
   };
+};
+
+type StateInsightsPayload = {
+  groundwater_by_district: DistrictGroundwaterRow[];
+  healthcare_tiers: HealthcareTierInfo[];
+  inflation_and_rupee: MacroInflationData;
 };
 
 type AgentResult = {
@@ -332,6 +382,25 @@ const DOMAINS: Record<Section, DomainConfig> = {
     gapsTitle: "Development Signals",
     explanation:
       "JAN—DRISHTI connects people, places, outcomes and evidence so that development gaps become visible without reducing communities to a single score.",
+  },
+
+  community: {
+    title: "Community Development",
+    shortTitle: "Community",
+    subtitle:
+      "Participatory Governance for Viksit Bharat — report gaps, mobilize Shramdaan drives, and co-solve across all 5 SDGs.",
+    sdg: "VIKSIT BHARAT",
+    sdgTitle: "Citizen-Led Action Network",
+    icon: Users,
+    accent: "#f97316",
+    question: "How can citizens, youth, and NGOs turn village data into immediate action?",
+    metrics: ["Action Rooms", "Shramdaan Drives", "Bal Mitra", "Civic Ledger"],
+    mapTitle: "Community Action Map",
+    analyticsTitle: "Civic Participation",
+    aiTitle: "Community AI",
+    gapsTitle: "Field Gap Reports",
+    explanation:
+      "Translates 5-sector village evidence into verifiable citizen action rooms with EXIF camera capture, vernacular voice notes, NGO adoption, and before/after proof.",
   },
 
   education: {
@@ -494,6 +563,23 @@ const ANCIENT_WISDOM: Record<Section, AncientWisdomEntry> = {
       "Unites demography, 5-sector GIS, and transparent statistical evidence so every Gram Panchayat decision serves measurable household flourishing.",
     accent: "#ff9933",
     secondaryAccent: "#06b6d4",
+  },
+  community: {
+    sector: "community",
+    label: "Samgachhadhvam · Collective Civic Action",
+    principle: "Shared Shramdaan & Community Trust",
+    source: "Rigveda Samjnana Sukta (10.191.2)",
+    scriptVerse: "संगच्छध्वं संवदध्वं सं वो मनांसि जानताम्",
+    transliteration:
+      "Samgachhadhvam samvadadhvam sam vo manamsi janatam — Walk together, speak with shared purpose, let your minds unite for common good.",
+    translation:
+      "True rural transformation arises when residents, youth, artisans, and local institutions act together in harmony.",
+    deccanHeritage:
+      "Kakatiya village communities built and maintained thousands of tanks, dharmasalas, and pathashalas through voluntary Shramdaan and Kudimaramat labour.",
+    modernBridge:
+      "Powers JAN—DRISHTI's Community Development Hub with participatory field reporting, NGO adoption, and peer-verified impact ledgers.",
+    accent: "#f97316",
+    secondaryAccent: "#10b981",
   },
   education: {
     sector: "education",
@@ -1091,6 +1177,7 @@ function normalizeVillageData(value: unknown): VillageData {
     },
     health: {
       latrine_within_pct: safeNumber(secHea.latrine_within_pct),
+      open_defecation_pct: safeNumber(secHea.open_defecation_pct),
       clean_cooking_fuel_pct: safeNumber(secHea.clean_cooking_fuel_pct),
       good_housing_pct: safeNumber(secHea.good_housing_pct),
       closed_drainage_pct: safeNumber(secHea.closed_drainage_pct),
@@ -1105,6 +1192,7 @@ function normalizeVillageData(value: unknown): VillageData {
       treated_tap_pct: safeNumber(secWat.treated_tap_pct),
       water_within_premises_pct: safeNumber(secWat.water_within_premises_pct),
       tanks_total: safeNumber(secWat.tanks_total),
+      tanks_gt_40ha: safeNumber(secWat.tanks_gt_40ha),
       tank_density_per_10sqkm: safeNumber(secWat.tank_density_per_10sqkm),
       nearest_water_km: safeNumber(secWat.nearest_water_km),
       nearest_water_name: String(secWat.nearest_water_name ?? "Water Asset"),
@@ -1140,6 +1228,7 @@ function normalizeVillageData(value: unknown): VillageData {
       solar_lighting_pct: safeNumber(secEnv.solar_lighting_pct),
       electricity_lighting_pct: safeNumber(secEnv.electricity_lighting_pct),
       current_temp_c: safeNumber(secEnv.current_temp_c),
+      forecast_7d_rain_mm: safeNumber(secEnv.forecast_7d_rain_mm),
       avg_solar_radiation_mj_m2: safeNumber(secEnv.avg_solar_radiation_mj_m2),
       pm2_5: safeNumber(secEnv.pm2_5),
       us_aqi: safeNumber(secEnv.us_aqi),
@@ -1196,9 +1285,76 @@ function normalizeVillageData(value: unknown): VillageData {
     },
     gis: {
       available: Boolean(spatial.geometry),
+      lat: safeNumber(spatial.lat),
+      lon: safeNumber(spatial.lon),
       area_sq_km: safeNumber(spatial.area_sq_km),
       mandal_code: rawMandalCode,
       geometry: spatial.geometry,
+    },
+  };
+}
+
+function toSectorInsightsVillage(v: VillageData | null): SectorInsightsVillage | null {
+  if (!v) return null;
+  return {
+    villageCode: v.profile.village_code,
+    villageName: v.profile.village_name,
+    mandalName: v.profile.mandal_name,
+    districtName: v.profile.district_name,
+    districtCode: String(v.profile.district_code ?? "").split(" ")[0].trim().padStart(2, "0"),
+    lat: v.gis.lat || undefined,
+    lon: v.gis.lon || undefined,
+    population: v.population.total,
+    households: v.population.households,
+    areaSqKm: v.gis.area_sq_km,
+    overallScore: v.jan_drishti.overall_score,
+    vvi: v.vulnerability.vvi_v2,
+    vviLevel: v.vulnerability.vvi_v2_level,
+    geometry: v.gis.geometry,
+    education: {
+      score: v.jan_drishti.education_score,
+      literacyRate: v.education.literacy_rate,
+      femaleLiteracyRate: v.education.female_literacy_rate,
+      nearestSchoolKm: v.education.nearest_school_km,
+      nearestSchoolName: v.education.nearest_school_name,
+    },
+    health: {
+      score: v.jan_drishti.health_score,
+      latrineWithinPct: v.health.latrine_within_pct,
+      openDefecationPct: v.health.open_defecation_pct ?? 55,
+      cleanCookingFuelPct: v.health.clean_cooking_fuel_pct,
+      closedDrainagePct: v.health.closed_drainage_pct,
+      nearestHealthKm: v.health.nearest_health_km,
+      nearestHealthName: v.health.nearest_health_name,
+    },
+    water: {
+      score: v.jan_drishti.water_score,
+      tapWaterTotalPct: v.water.tap_water_total_pct,
+      treatedTapPct: v.water.treated_tap_pct,
+      waterWithinPremisesPct: v.water.water_within_premises_pct,
+      tanksTotal: v.water.tanks_total,
+      tanksGt40Ha: v.water.tanks_gt_40ha ?? 0,
+      tankDensity: v.water.tank_density_per_10sqkm,
+      nearestWaterKm: v.water.nearest_water_km,
+      nearestWaterName: v.water.nearest_water_name,
+    },
+    livelihood: {
+      score: v.jan_drishti.livelihood_score,
+      wpr: v.livelihood.worker_participation_rate,
+      marginalWorkerPct: v.livelihood.marginal_worker_percent,
+      bankingAccessPct: v.livelihood.banking_access_pct,
+      nearestLivelihoodKm: v.livelihood.nearest_livelihood_km,
+      nearestLivelihoodName: v.livelihood.nearest_livelihood_name,
+    },
+    environment: {
+      score: v.jan_drishti.environment_score,
+      solidBiomassPct: v.environment.solid_biomass_fuel_pct,
+      solarLightingPct: v.environment.solar_lighting_pct,
+      avgSolarMj: v.environment.avg_solar_radiation_mj_m2,
+      currentTempC: v.environment.current_temp_c,
+      forecastRainMm: v.environment.forecast_7d_rain_mm ?? 6.5,
+      pm25: v.environment.pm2_5,
+      usAqi: v.environment.us_aqi,
     },
   };
 }
@@ -1262,6 +1418,16 @@ export default function Home() {
     Record<string, boolean>
   >({});
 
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [lang, setLang] = useState<LanguageCode>("en");
+  const [stateInsights, setStateInsights] = useState<StateInsightsPayload | null>(null);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIntro(false);
@@ -1285,6 +1451,16 @@ export default function Home() {
       })
       .catch(() => {
         // Ignore featured fetch errors
+      });
+
+    fetch(`${API_BASE}/state/insights`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const payload = await res.json();
+        setStateInsights(payload);
+      })
+      .catch(() => {
+        // Ignore insights fetch errors
       });
 
     return () => clearTimeout(timer);
@@ -1621,11 +1797,13 @@ export default function Home() {
   }
 
   const config = DOMAINS[section];
+  const t = UI_TRANSLATIONS[lang];
+  const insightsVillage = toSectorInsightsVillage(selectedVillage);
 
   return (
     <>
-      <main className="relative min-h-screen bg-[#05080d] text-white overflow-x-hidden">
-        {/* Subtle Moving Multi-Sector Ambient Background (Low Opacity, Non-Dominant) */}
+      <main className="jd-shell relative min-h-screen bg-[#05080d] text-white overflow-x-hidden">
+        {/* Subtle Moving Multi-Sector Ambient Background + Large Viksit Bharat @2047 Backdrop */}
         <div
           className="ambient-bg-canvas fixed inset-0 z-0 pointer-events-none overflow-hidden"
           aria-hidden="true"
@@ -1647,7 +1825,7 @@ export default function Home() {
             TOP BAR
         ================================================= */}
 
-        <header className="fixed top-0 left-0 right-0 z-40 h-[72px] border-b border-white/10 bg-[#05080d]/95 backdrop-blur-xl">
+        <header className="jd-topbar fixed top-0 left-0 right-0 z-40 h-[72px] border-b border-white/10 bg-[#05080d]/95 backdrop-blur-xl">
           <div
             className="absolute inset-x-0 top-0 h-[2px]"
             style={{
@@ -1702,7 +1880,7 @@ export default function Home() {
                   onChange={(e) =>
                     searchVillages(e.target.value)
                   }
-                  placeholder="Search Telangana village by name..."
+                  placeholder={t.searchPlaceholder}
                   className="w-full bg-transparent outline-none text-xs text-white placeholder:text-white/40"
                 />
 
@@ -1784,9 +1962,9 @@ export default function Home() {
 
             </div>
 
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
 
-              <div className="hidden lg:flex items-center gap-2 text-xs text-white/60 whitespace-nowrap">
+              <div className="hidden xl:flex items-center gap-2 text-xs text-white/60 whitespace-nowrap mr-1">
 
                 <span
                   className={`h-2 w-2 rounded-full ${
@@ -1800,13 +1978,55 @@ export default function Home() {
 
                 <span>
                   {apiStatus === "online"
-                    ? "Backend Online"
+                    ? t.backendOnline
                     : apiStatus === "offline"
-                    ? "Backend Offline"
-                    : "Checking Backend"}
+                    ? t.backendOffline
+                    : t.checkingBackend}
                 </span>
 
               </div>
+
+              {/* Language Switcher: English / Telugu / Hindi */}
+              <div
+                className="flex items-center border border-slate-300 dark:border-white/15 bg-slate-100 dark:bg-white/[0.04] p-0.5 shrink-0"
+                role="group"
+                aria-label="Language selector"
+              >
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setLang(opt.id)}
+                    className={`px-2 py-1 text-[11px] font-medium transition whitespace-nowrap ${
+                      lang === opt.id
+                        ? "bg-orange-600 text-white"
+                        : "text-slate-700 dark:text-white/65 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {opt.native}
+                  </button>
+                ))}
+              </div>
+
+              {/* Light / Dark Theme Toggle */}
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                aria-label="Toggle light and dark theme"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-300 dark:border-white/15 bg-slate-100 dark:bg-white/[0.04] hover:bg-slate-200 dark:hover:bg-white/[0.08] transition text-xs font-medium text-slate-800 dark:text-white whitespace-nowrap shrink-0"
+              >
+                {theme === "dark" ? (
+                  <>
+                    <Sun size={13} className="text-amber-300" />
+                    <span className="hidden sm:inline">{t.lightMode}</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon size={13} className="text-slate-700" />
+                    <span className="hidden sm:inline">{t.darkMode}</span>
+                  </>
+                )}
+              </button>
 
               <button
                 onClick={() =>
@@ -1814,10 +2034,10 @@ export default function Home() {
                 }
                 type="button"
                 aria-label="Open AI intelligence"
-                className="flex items-center gap-2 px-4 py-2 border border-orange-400/40 bg-gradient-to-r from-orange-500/20 via-pink-500/15 to-cyan-500/20 hover:from-orange-500/30 hover:to-cyan-500/30 transition text-xs font-medium text-white whitespace-nowrap shrink-0"
+                className="jd-keep-dark flex items-center gap-2 px-3.5 py-2 border border-orange-400/40 bg-gradient-to-r from-orange-600 via-pink-600 to-cyan-600 hover:brightness-110 transition text-xs font-medium text-white whitespace-nowrap shrink-0"
               >
-                <Brain size={14} className="text-orange-300" />
-                <span>AI Intelligence</span>
+                <Brain size={14} className="text-amber-200" />
+                <span>{t.aiIntelligence}</span>
               </button>
 
             </div>
@@ -1829,16 +2049,16 @@ export default function Home() {
             COLOURFUL SECTOR SIDEBAR
         ================================================= */}
 
-        <aside className="fixed left-0 top-[72px] bottom-0 z-30 w-[235px] border-r border-white/12 bg-gradient-to-b from-[#080d16] via-[#070b12] to-[#050910] px-3.5 py-6 hidden md:flex flex-col overflow-y-auto">
+        <aside className="jd-sidebar fixed left-0 top-[72px] bottom-0 z-30 w-[235px] border-r border-white/12 bg-gradient-to-b from-[#080d16] via-[#070b12] to-[#050910] px-3.5 py-6 hidden md:flex flex-col overflow-y-auto">
 
           <div className="px-3 mb-2.5 text-[11px] font-semibold tracking-wide text-orange-300/85">
-            Development Sectors
+            {t.developmentSectors}
           </div>
 
           <NavButton
             active={section === "overview"}
             icon={<Network size={16} />}
-            label="Overview"
+            label={translateDomainLabel("overview", lang, "Overview")}
             accentColor="#ff9933"
             onClick={() =>
               changeSection("overview")
@@ -1846,9 +2066,20 @@ export default function Home() {
           />
 
           <NavButton
+            active={section === "community"}
+            icon={<Users size={16} />}
+            label="Community Development"
+            accentColor="#f97316"
+            badge="Action Hub"
+            onClick={() =>
+              changeSection("community")
+            }
+          />
+
+          <NavButton
             active={section === "education"}
             icon={<GraduationCap size={16} />}
-            label="Education"
+            label={translateDomainLabel("education", lang, "Education")}
             accentColor="#ef4444"
             badge="SDG 04"
             onClick={() =>
@@ -1859,7 +2090,7 @@ export default function Home() {
           <NavButton
             active={section === "health"}
             icon={<HeartPulse size={16} />}
-            label="Health"
+            label={translateDomainLabel("health", lang, "Health")}
             accentColor="#10b981"
             badge="Readiness"
             onClick={() =>
@@ -1870,7 +2101,7 @@ export default function Home() {
           <NavButton
             active={section === "water"}
             icon={<Droplets size={16} />}
-            label="Water"
+            label={translateDomainLabel("water", lang, "Water")}
             accentColor="#06b6d4"
             badge="Readiness"
             onClick={() =>
@@ -1881,7 +2112,7 @@ export default function Home() {
           <NavButton
             active={section === "livelihood"}
             icon={<BriefcaseBusiness size={16} />}
-            label="Livelihood"
+            label={translateDomainLabel("livelihood", lang, "Livelihood")}
             accentColor="#ec4899"
             badge="SDG 08"
             onClick={() =>
@@ -1892,7 +2123,7 @@ export default function Home() {
           <NavButton
             active={section === "environment"}
             icon={<Leaf size={16} />}
-            label="Environment"
+            label={translateDomainLabel("environment", lang, "Environment")}
             accentColor="#84cc16"
             badge="Readiness"
             onClick={() =>
@@ -1902,7 +2133,7 @@ export default function Home() {
 
           <div className="mt-5 border-t border-white/10 pt-4">
             <div className="px-3 mb-2 text-[11px] font-semibold tracking-wide text-cyan-300/85">
-              Future Readiness
+              {t.futureReadiness}
             </div>
             <div className="space-y-1.5">
               {FUTURE_READINESS_DOMAINS.map((domainKey) => {
@@ -2039,6 +2270,23 @@ export default function Home() {
         ================================================= */}
 
         <section className="relative z-10 pt-[72px] md:pl-[235px] min-h-screen">
+          {/* Mobile Quick Switcher (Overview, Community Development, 5 Sectors) */}
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto border-b border-white/10 bg-[#060a12] px-4 py-2">
+            {(["overview", "community", ...DOMAIN_ORDER] as Section[]).map((tabKey) => (
+              <button
+                key={tabKey}
+                type="button"
+                onClick={() => changeSection(tabKey)}
+                className={`px-3 py-1.5 text-xs font-medium border whitespace-nowrap ${
+                  section === tabKey
+                    ? "border-orange-400 bg-orange-600 text-white"
+                    : "border-white/15 bg-white/[0.03] text-white/70"
+                }`}
+              >
+                {DOMAINS[tabKey].shortTitle}
+              </button>
+            ))}
+          </div>
 
           {section === "overview" ? (
             <OverviewScreen
@@ -2063,6 +2311,16 @@ export default function Home() {
               readinessChecks={readinessChecks}
               onToggleReadinessCheck={toggleReadinessCheck}
               onLaunchReadinessReview={launchReadinessReview}
+              lang={lang}
+              stateInsights={stateInsights}
+              insightsVillage={insightsVillage}
+            />
+          ) : section === "community" ? (
+            <CommunityDevelopmentHub
+              activeVillageName={selectedVillage?.profile.village_name ?? "Telangana Ward"}
+              activeDistrictName={selectedVillage?.profile.district_name ?? "Medak"}
+              activeLat={selectedVillage?.gis.lat}
+              activeLon={selectedVillage?.gis.lon}
             />
           ) : (
             <DomainScreen
@@ -2083,6 +2341,9 @@ export default function Home() {
               readinessChecks={readinessChecks}
               onToggleReadinessCheck={toggleReadinessCheck}
               onLaunchReadinessReview={launchReadinessReview}
+              lang={lang}
+              stateInsights={stateInsights}
+              insightsVillage={insightsVillage}
             />
           )}
 
@@ -2347,6 +2608,9 @@ function OverviewScreen({
   readinessChecks,
   onToggleReadinessCheck,
   onLaunchReadinessReview,
+  lang,
+  stateInsights,
+  insightsVillage,
 }: {
   onSection: (section: Section, initialPanel?: Panel | null) => void;
   onAI: () => void;
@@ -2361,7 +2625,12 @@ function OverviewScreen({
   readinessChecks: Record<string, boolean>;
   onToggleReadinessCheck: (key: string) => void;
   onLaunchReadinessReview: (domain: FutureReadinessDomain) => void;
+  lang: LanguageCode;
+  stateInsights: StateInsightsPayload | null;
+  insightsVillage: SectorInsightsVillage | null;
 }) {
+  const [cycleCinemaOpen, setCycleCinemaOpen] = useState(false);
+
   return (
     <div className="domain-overview-workspace min-h-screen pb-16">
 
@@ -2373,9 +2642,17 @@ function OverviewScreen({
 
         <div className="absolute inset-0 overview-data-field" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-8 py-24 grid xl:grid-cols-[1fr_320px] gap-12 items-end">
+        <div className="relative z-10 max-w-7xl mx-auto px-8 py-20 grid xl:grid-cols-[1fr_320px] gap-12 items-end">
 
           <div className="max-w-3xl">
+
+            {/* 100% Opacity Viksit Bharat @2047 Overview Banner */}
+            <div className="mb-6 opacity-100">
+              <div className="text-3xl sm:text-5xl md:text-6xl font-black tracking-[0.12em] uppercase leading-none opacity-100 bg-gradient-to-r from-[#ff9933] via-slate-900 to-[#047857] dark:from-[#ff9933] dark:via-white dark:to-[#10b981] bg-clip-text text-transparent">
+                {UI_TRANSLATIONS[lang].viksitBackdrop}
+              </div>
+              <div className="mt-2 h-[3px] w-48 bg-gradient-to-r from-[#ff9933] via-amber-400 to-[#10b981] opacity-100" />
+            </div>
 
             <div className="font-samarkan text-4xl sm:text-5xl mb-3">
               <span className="bg-gradient-to-r from-[#ff9933] via-amber-200 to-white bg-clip-text text-transparent">
@@ -2442,6 +2719,23 @@ function OverviewScreen({
               >
                 <Compass size={15} className="text-cyan-300" />
                 <span>Explore Future Readiness</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setCycleCinemaOpen(true)}
+                className="px-6 py-3 border border-emerald-400/50 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-emerald-500/25 hover:from-red-500/30 hover:to-emerald-500/35 transition flex items-center gap-2.5 text-xs font-semibold text-white whitespace-nowrap"
+              >
+                <Sparkles size={15} className="text-emerald-300" />
+                <span>Break Vicious Cycle (Cinematic)</span>
+              </button>
+
+              <a
+                href="#prediction-engine-section"
+                className="px-6 py-3 border border-cyan-400/45 bg-cyan-500/15 hover:bg-cyan-500/25 transition flex items-center gap-2.5 text-xs font-semibold text-cyan-100 whitespace-nowrap"
+              >
+                <TrendingUp size={15} className="text-cyan-300" />
+                <span>2026–2047 Prediction Simulator</span>
               </a>
 
             </div>
@@ -2531,26 +2825,41 @@ function OverviewScreen({
             const item = DOMAINS[id];
             const Icon = item.icon;
             const hasReadiness = isFutureReadinessDomain(id);
+            const sdgAsset = SDG_SECTOR_ASSETS[id as SdgSectorId];
 
             return (
               <button
                 key={id}
                 onClick={() => onSection(id)}
                 data-domain={id}
-                className="domain-card group relative min-h-[280px] overflow-hidden border transition-all duration-300 text-left"
+                className="domain-card group relative min-h-[340px] overflow-hidden border transition-all duration-300 text-left flex flex-col justify-between"
               >
 
-                <div className="domain-card-bar absolute inset-x-0 top-0 h-[2.5px]" />
+                <div className="domain-card-bar absolute inset-x-0 top-0 h-[2.5px] z-20" />
 
-                <div className="absolute inset-0 domain-card-sweep" />
+                {/* High-Resolution SDG Visual Header on Card */}
+                {sdgAsset && (
+                  <div className="relative h-28 w-full overflow-hidden border-b border-white/10 shrink-0">
+                    <img
+                      src={sdgAsset.imageSrc}
+                      alt={sdgAsset.alt}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#05080d] via-transparent to-black/25" />
+                    <div className="absolute top-2.5 left-2.5 z-10">
+                      <SdgGoalBadge sector={id as SdgSectorId} compact />
+                    </div>
+                  </div>
+                )}
 
-                <div className="relative z-10 h-full flex flex-col justify-between p-6">
+                <div className="relative z-10 flex-1 flex flex-col justify-between p-5">
 
                   <div className="flex items-center justify-between">
 
-                    <span className="domain-card-icon flex h-10 w-10 items-center justify-center transition-all duration-300">
+                    <span className="domain-card-icon flex h-9 w-9 items-center justify-center transition-all duration-300">
                       <Icon
-                        size={21}
+                        size={19}
                         strokeWidth={1.6}
                       />
                     </span>
@@ -2561,21 +2870,21 @@ function OverviewScreen({
 
                   </div>
 
-                  <div className="mt-8">
+                  <div className="mt-4">
 
                     <div className="domain-card-kicker text-[11px] font-medium">
                       {hasReadiness ? "Intelligence + Future Readiness" : "Domain Intelligence"}
                     </div>
 
-                    <h4 className="mt-1.5 text-xl font-semibold text-white">
+                    <h4 className="mt-1 text-xl font-semibold text-white">
                       {item.shortTitle}
                     </h4>
 
-                    <p className="mt-2.5 text-xs leading-6 text-white/60">
+                    <p className="mt-2 text-xs leading-5 text-white/60">
                       {item.subtitle}
                     </p>
 
-                    <div className="domain-card-cta mt-6 flex items-center gap-2 text-xs font-medium transition">
+                    <div className="domain-card-cta mt-4 flex items-center gap-2 text-xs font-medium transition">
                       <span>Enter Domain</span>
                       <ArrowRight size={13} className="group-hover:translate-x-1 transition" />
                     </div>
@@ -2688,6 +2997,47 @@ function OverviewScreen({
       </section>
 
       {/* =================================================
+          NEW SEGMENT: VICIOUS CYCLE -> VIRTUOUS TRANSITION
+      ================================================= */}
+      <ViciousToVirtuousCycle
+        lang={lang}
+        onOpenFullCinema={() => setCycleCinemaOpen(true)}
+        villageMetrics={
+          insightsVillage
+            ? {
+                villageName: insightsVillage.villageName,
+                districtName: insightsVillage.districtName,
+                envScore: insightsVillage.environment.score,
+                waterScore: insightsVillage.water.score,
+                healthScore: insightsVillage.health.score,
+                eduScore: insightsVillage.education.score,
+                livScore: insightsVillage.livelihood.score,
+                solidBiomassPct: insightsVillage.environment.solidBiomassPct,
+                tapWaterPct: insightsVillage.water.tapWaterTotalPct,
+                tanksTotal: insightsVillage.water.tanksTotal,
+                openDefecationPct: insightsVillage.health.openDefecationPct,
+                literacyRate: insightsVillage.education.literacyRate,
+                marginalWorkerPct: insightsVillage.livelihood.marginalWorkerPct,
+              }
+            : null
+        }
+      />
+
+      <ViciousCycleCinematicOverlay
+        open={cycleCinemaOpen}
+        onClose={() => setCycleCinemaOpen(false)}
+        villageName={selectedVillage?.profile.village_name ?? "Telangana State"}
+      />
+
+      {/* =================================================
+          GRAND PREDICTIVE INTELLIGENCE, COMPARISON & EXPLAINER
+      ================================================= */}
+      <PredictionHorizonStudio
+        village={insightsVillage}
+        groundwater={stateInsights?.groundwater_by_district ?? []}
+      />
+
+      {/* =================================================
           NEW SEGMENT: FUTURE READINESS (HEALTH, WATER, ENVIRONMENT)
       ================================================= */}
 
@@ -2700,6 +3050,76 @@ function OverviewScreen({
         }
         onLaunchReadinessReview={onLaunchReadinessReview}
       />
+
+      {/* =================================================
+          MACROECONOMIC BRIDGE: INFLATION BALANCE & INR APPRECIATION
+      ================================================= */}
+      <MacroInflationRupeePanel
+        lang={lang}
+        macroData={stateInsights?.inflation_and_rupee}
+      />
+
+      {/* =================================================
+          FREE STORYBOARD, INFOGRAPHIC PNG & BRIEFING VIDEO STUDIO
+      ================================================= */}
+      <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12">
+        <StoryboardVideoStudio
+          lang={lang}
+          village={
+            insightsVillage
+              ? {
+                  villageName: insightsVillage.villageName,
+                  villageCode: insightsVillage.villageCode,
+                  mandalName: insightsVillage.mandalName,
+                  districtName: insightsVillage.districtName,
+                  population: insightsVillage.population,
+                  households: insightsVillage.households,
+                  areaSqKm: insightsVillage.areaSqKm,
+                  overallScore: insightsVillage.overallScore,
+                  vvi: insightsVillage.vvi,
+                  vviLevel: insightsVillage.vviLevel,
+                  geometry: insightsVillage.geometry,
+                  education: {
+                    score: insightsVillage.education.score,
+                    literacyRate: insightsVillage.education.literacyRate,
+                    femaleLiteracyRate: insightsVillage.education.femaleLiteracyRate,
+                    nearestSchoolKm: insightsVillage.education.nearestSchoolKm,
+                    nearestSchoolName: insightsVillage.education.nearestSchoolName,
+                  },
+                  health: {
+                    score: insightsVillage.health.score,
+                    latrinePct: insightsVillage.health.latrineWithinPct,
+                    cleanFuelPct: insightsVillage.health.cleanCookingFuelPct,
+                    nearestHealthKm: insightsVillage.health.nearestHealthKm,
+                    nearestHealthName: insightsVillage.health.nearestHealthName,
+                  },
+                  water: {
+                    score: insightsVillage.water.score,
+                    tapPct: insightsVillage.water.tapWaterTotalPct,
+                    tanksTotal: insightsVillage.water.tanksTotal,
+                    waterWithinPct: insightsVillage.water.waterWithinPremisesPct,
+                    nearestWaterKm: insightsVillage.water.nearestWaterKm,
+                  },
+                  livelihood: {
+                    score: insightsVillage.livelihood.score,
+                    wpr: insightsVillage.livelihood.wpr,
+                    marginalPct: insightsVillage.livelihood.marginalWorkerPct,
+                    bankingPct: insightsVillage.livelihood.bankingAccessPct,
+                    nearestHubKm: insightsVillage.livelihood.nearestLivelihoodKm,
+                  },
+                  environment: {
+                    score: insightsVillage.environment.score,
+                    solarMj: insightsVillage.environment.avgSolarMj,
+                    biomassPct: insightsVillage.environment.solidBiomassPct,
+                    tempC: insightsVillage.environment.currentTempC,
+                    pm25: insightsVillage.environment.pm25,
+                  },
+                }
+              : null
+          }
+          focusSector="overview"
+        />
+      </section>
 
       {/* =================================================
           ANCIENT CIVILISATIONAL WISDOM ACROSS ALL SECTORS
@@ -3301,6 +3721,9 @@ function DomainScreen({
   readinessChecks,
   onToggleReadinessCheck,
   onLaunchReadinessReview,
+  lang,
+  stateInsights,
+  insightsVillage,
 }: {
   section: Section;
   config: DomainConfig;
@@ -3317,6 +3740,9 @@ function DomainScreen({
   readinessChecks: Record<string, boolean>;
   onToggleReadinessCheck: (key: string) => void;
   onLaunchReadinessReview: (domain: FutureReadinessDomain) => void;
+  lang: LanguageCode;
+  stateInsights: StateInsightsPayload | null;
+  insightsVillage: SectorInsightsVillage | null;
 }) {
   const Icon = config.icon;
   const hasFutureReadiness = isFutureReadinessDomain(section);
@@ -3340,50 +3766,62 @@ function DomainScreen({
 
         <div className="absolute inset-0 domain-data-sweep" />
 
-        <div className="relative z-10 px-8 md:px-12 py-16 max-w-7xl mx-auto">
-
-          <div className="flex items-center gap-4">
-
-            <div className="relative h-12 w-12 rounded-full border border-white/15 bg-white/[0.03] flex items-center justify-center">
-
-              <Icon
-                size={22}
-                strokeWidth={1.3}
-              />
-
-            </div>
-
+        <div className="relative z-10 px-8 md:px-12 py-12 max-w-7xl mx-auto">
+          <div className="grid gap-8 lg:grid-cols-[1.08fr_.92fr] items-center">
             <div>
+              <div className="flex flex-wrap items-center gap-3.5">
+                <div className="relative h-12 w-12 rounded-full border border-white/15 bg-white/[0.03] flex items-center justify-center shrink-0">
+                  <Icon size={22} strokeWidth={1.3} />
+                </div>
 
-              <div className="font-mono text-xs text-white/45">
-                {config.sdg}
+                {section in SDG_SECTOR_ASSETS ? (
+                  <SdgGoalBadge sector={section as SdgSectorId} />
+                ) : (
+                  <div>
+                    <div className="font-mono text-xs text-white/45">{config.sdg}</div>
+                    <div className="text-xs text-white/65">{config.sdgTitle}</div>
+                  </div>
+                )}
               </div>
 
-              <div className="text-xs text-white/65">
-                {config.sdgTitle}
-              </div>
+              <h1 className="mt-6 text-4xl md:text-5xl font-semibold tracking-[-0.03em] text-balance">
+                {config.title}
+              </h1>
 
+              <p className="mt-4 max-w-2xl text-base leading-8 text-white/55">
+                {config.subtitle}
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-white/45">
+                {config.metrics.map((metric, index) => (
+                  <span key={metric} className="inline-flex items-center gap-2">
+                    {index > 0 && <span aria-hidden="true">·</span>}
+                    <span>{metric}</span>
+                  </span>
+                ))}
+              </div>
             </div>
 
+            {section in SDG_SECTOR_ASSETS && (
+              <div className="relative overflow-hidden border border-white/15 bg-[#040812] shadow-2xl">
+                <div className="relative aspect-video w-full overflow-hidden">
+                  <img
+                    src={SDG_SECTOR_ASSETS[section as SdgSectorId].imageSrc}
+                    alt={SDG_SECTOR_ASSETS[section as SdgSectorId].alt}
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#040812] via-transparent to-transparent opacity-85" />
+                  <div className="absolute top-3 right-3">
+                    <SdgGoalBadge sector={section as SdgSectorId} compact />
+                  </div>
+                </div>
+                <div className="px-4 py-2.5 border-t border-white/10 text-[11px] font-mono text-white/75">
+                  {SDG_SECTOR_ASSETS[section as SdgSectorId].caption}
+                </div>
+              </div>
+            )}
           </div>
-
-          <h1 className="mt-8 text-4xl md:text-6xl font-semibold tracking-[-0.03em] text-balance">
-            {config.title}
-          </h1>
-
-          <p className="mt-5 max-w-2xl text-base leading-8 text-white/50">
-            {config.subtitle}
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-white/45">
-            {config.metrics.map((metric, index) => (
-              <span key={metric} className="inline-flex items-center gap-2">
-                {index > 0 && <span aria-hidden="true">·</span>}
-                <span>{metric}</span>
-              </span>
-            ))}
-          </div>
-
         </div>
 
       </section>
@@ -3551,6 +3989,9 @@ function DomainScreen({
               config={config}
               selectedVillage={selectedVillage}
               onSelectVillage={onSelectVillage}
+              lang={lang}
+              stateInsights={stateInsights}
+              insightsVillage={insightsVillage}
             />
           )}
 
@@ -3572,15 +4013,71 @@ function DomainScreen({
           )}
 
           {panel === "ai" && (
-            <DomainAI
-              config={config}
-              selectedVillage={selectedVillage}
-              featuredVillages={featuredVillages}
-              onSelectVillage={onSelectVillage}
-              agentResult={agentResult}
-              running={agentRunning}
-              onRun={onRunAgent}
-            />
+            <div className="space-y-6">
+              <DomainAI
+                config={config}
+                selectedVillage={selectedVillage}
+                featuredVillages={featuredVillages}
+                onSelectVillage={onSelectVillage}
+                agentResult={agentResult}
+                running={agentRunning}
+                onRun={onRunAgent}
+              />
+              {insightsVillage && (
+                <StoryboardVideoStudio
+                  lang={lang}
+                  village={{
+                    villageName: insightsVillage.villageName,
+                    villageCode: insightsVillage.villageCode,
+                    mandalName: insightsVillage.mandalName,
+                    districtName: insightsVillage.districtName,
+                    population: insightsVillage.population,
+                    households: insightsVillage.households,
+                    areaSqKm: insightsVillage.areaSqKm,
+                    overallScore: insightsVillage.overallScore,
+                    vvi: insightsVillage.vvi,
+                    vviLevel: insightsVillage.vviLevel,
+                    geometry: insightsVillage.geometry,
+                    education: {
+                      score: insightsVillage.education.score,
+                      literacyRate: insightsVillage.education.literacyRate,
+                      femaleLiteracyRate: insightsVillage.education.femaleLiteracyRate,
+                      nearestSchoolKm: insightsVillage.education.nearestSchoolKm,
+                      nearestSchoolName: insightsVillage.education.nearestSchoolName,
+                    },
+                    health: {
+                      score: insightsVillage.health.score,
+                      latrinePct: insightsVillage.health.latrineWithinPct,
+                      cleanFuelPct: insightsVillage.health.cleanCookingFuelPct,
+                      nearestHealthKm: insightsVillage.health.nearestHealthKm,
+                      nearestHealthName: insightsVillage.health.nearestHealthName,
+                    },
+                    water: {
+                      score: insightsVillage.water.score,
+                      tapPct: insightsVillage.water.tapWaterTotalPct,
+                      tanksTotal: insightsVillage.water.tanksTotal,
+                      waterWithinPct: insightsVillage.water.waterWithinPremisesPct,
+                      nearestWaterKm: insightsVillage.water.nearestWaterKm,
+                    },
+                    livelihood: {
+                      score: insightsVillage.livelihood.score,
+                      wpr: insightsVillage.livelihood.wpr,
+                      marginalPct: insightsVillage.livelihood.marginalWorkerPct,
+                      bankingPct: insightsVillage.livelihood.bankingAccessPct,
+                      nearestHubKm: insightsVillage.livelihood.nearestLivelihoodKm,
+                    },
+                    environment: {
+                      score: insightsVillage.environment.score,
+                      solarMj: insightsVillage.environment.avgSolarMj,
+                      biomassPct: insightsVillage.environment.solidBiomassPct,
+                      tempC: insightsVillage.environment.currentTempC,
+                      pm25: insightsVillage.environment.pm25,
+                    },
+                  }}
+                  focusSector={section}
+                />
+              )}
+            </div>
           )}
 
           {panel === "gaps" && (
@@ -4201,10 +4698,16 @@ function DomainMap({
   config,
   selectedVillage,
   onSelectVillage,
+  lang,
+  stateInsights,
+  insightsVillage,
 }: {
   config: DomainConfig;
   selectedVillage: VillageData | null;
   onSelectVillage: (code: string) => void;
+  lang: LanguageCode;
+  stateInsights: StateInsightsPayload | null;
+  insightsVillage: SectorInsightsVillage | null;
 }) {
   const [spatialLayout, setSpatialLayout] = useState<
     "split" | "gis_only" | "satellite_only"
@@ -4348,6 +4851,40 @@ function DomainMap({
           config={config}
           selectedVillage={selectedVillage}
         />
+      )}
+
+      {/* Sectoral Graphical Visual & Cinematic Transition Directly Below GIS */}
+      {activeDomain !== "overview" && (
+        <SectorGraphicalVisual
+          domain={activeDomain as GraphicalDomain}
+          village={insightsVillage}
+          lang={lang}
+        />
+      )}
+
+      {/* Sector-Specific Directory, Groundwater Observatory, Hospital Matrix & Visual Solution Plans */}
+      {activeDomain === "education" && (
+        <EducationInstitutionsPanel lang={lang} village={insightsVillage} />
+      )}
+      {activeDomain === "water" && (
+        <WaterGroundwaterPanel
+          lang={lang}
+          village={insightsVillage}
+          groundwater={stateInsights?.groundwater_by_district ?? []}
+        />
+      )}
+      {activeDomain === "health" && (
+        <HealthcareServiceMatrixPanel
+          lang={lang}
+          village={insightsVillage}
+          healthcareTiers={stateInsights?.healthcare_tiers ?? []}
+        />
+      )}
+      {activeDomain === "environment" && (
+        <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
+      )}
+      {activeDomain === "livelihood" && (
+        <LivelihoodVisualPlanPanel lang={lang} village={insightsVillage} />
       )}
     </div>
   );
@@ -6041,7 +6578,7 @@ function SectorAncientWisdomBanner({ section }: { section: Section }) {
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-8 md:px-12 py-9">
+      <div className="relative z-10 max-w-7xl mx-auto px-8 md:px-12 py-9 space-y-6">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_.8fr] items-center">
           <div>
             <div
@@ -6089,6 +6626,13 @@ function SectorAncientWisdomBanner({ section }: { section: Section }) {
             </div>
           </div>
         </div>
+
+        <AncientWisdomVisual
+          domain={
+            (section in ANCIENT_WISDOM ? section : "overview") as AncientWisdomDomain
+          }
+          compact
+        />
       </div>
     </section>
   );
@@ -6237,6 +6781,12 @@ function OverviewAncientWisdomSection({
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-8 border-t border-white/10 pt-6">
+            <AncientWisdomVisual
+              domain={selectedTab as AncientWisdomDomain}
+            />
           </div>
         </div>
       </div>
