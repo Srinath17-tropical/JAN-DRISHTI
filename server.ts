@@ -1190,6 +1190,18 @@ async function startServer() {
   });
 
   function resolveServerMapsApiKey(): string {
+    const direct = (
+      process.env.VITE_GOOGLE_MAPS_API_KEY ||
+      process.env.GOOGLE_MAPS_API_KEY ||
+      process.env.MAPS_API_KEY ||
+      ""
+    ).trim();
+    if (direct) return direct;
+    try {
+      dotenv.config();
+    } catch {
+      // Ignore if .env is unavailable
+    }
     return (
       process.env.VITE_GOOGLE_MAPS_API_KEY ||
       process.env.GOOGLE_MAPS_API_KEY ||
@@ -1217,8 +1229,11 @@ async function startServer() {
     return m ? Math.round(Number(m[1])) : 0;
   }
 
-  // Client Google Maps JS API key config check (reads runtime env if provided via server environment)
+  // Client Google Maps JS API key config check (never cache empty pre-restart responses)
   app.get("/api/maps/config", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const apiKey = resolveServerMapsApiKey();
     res.json({
       hasKey: Boolean(apiKey),

@@ -301,28 +301,49 @@ export default function LiveTrafficCorridorStudio({
   const [loadingCorridors, setLoadingCorridors] = useState(false);
   const [escalatingNote, setEscalatingNote] = useState<string | null>(null);
 
+  const checkMapsConfig = useCallback(async (attempt = 0): Promise<void> => {
+    if ((import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim()) {
+      setApiKey((import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim());
+      setConfigChecked(true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/maps/config?t=${Date.now()}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const d = (await res.json()) as { hasKey?: boolean; apiKey?: string };
+        if (d?.apiKey) {
+          setApiKey(d.apiKey.trim());
+          setConfigChecked(true);
+          return;
+        }
+      }
+      if (attempt < 2) {
+        setTimeout(() => {
+          void checkMapsConfig(attempt + 1);
+        }, 1200);
+        return;
+      }
+      setConfigChecked(true);
+    } catch {
+      if (attempt < 2) {
+        setTimeout(() => {
+          void checkMapsConfig(attempt + 1);
+        }, 1200);
+        return;
+      }
+      setConfigChecked(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (apiKey) {
       setConfigChecked(true);
       return;
     }
-    let active = true;
-    fetch("/api/maps/config")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { hasKey?: boolean; apiKey?: string } | null) => {
-        if (!active) return;
-        if (d?.apiKey) {
-          setApiKey(d.apiKey.trim());
-        }
-        setConfigChecked(true);
-      })
-      .catch(() => {
-        if (active) setConfigChecked(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [apiKey]);
+    void checkMapsConfig(0);
+  }, [apiKey, checkMapsConfig]);
 
   const fetchCorridors = useCallback(async () => {
     setLoadingCorridors(true);
@@ -474,7 +495,10 @@ export default function LiveTrafficCorridorStudio({
 
           <button
             type="button"
-            onClick={() => void fetchCorridors()}
+            onClick={() => {
+              if (!apiKey) void checkMapsConfig(0);
+              void fetchCorridors();
+            }}
             disabled={loadingCorridors}
             className="inline-flex items-center gap-1.5 border border-white/15 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white hover:border-orange-300/40 disabled:opacity-50"
           >
@@ -605,14 +629,27 @@ export default function LiveTrafficCorridorStudio({
               <MapPin size={24} className="text-orange-300" />
               <div className="text-sm font-semibold text-white">
                 {configChecked
-                  ? "Configure Google Maps API Key for Interactive Traffic Tile Rendering"
-                  : "Checking Google Maps Runtime Configuration…"}
+                  ? "Waiting for Google Maps Tile Session"
+                  : "Connecting to Google Maps Traffic Tiles…"}
               </div>
               <p className="text-xs text-slate-400 max-w-md">
                 {configChecked
-                  ? "Restart the server or set VITE_GOOGLE_MAPS_API_KEY in environment secrets to stream live Google Maps TrafficLayer tiles alongside the corridor metrics."
+                  ? "Live map tiles require an active browser refresh or an enabled Google Maps API key for this runtime. Corridor travel-time calculations above remain available."
                   : "Initializing Google Maps Platform runtime environment."}
               </p>
+              {configChecked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfigChecked(false);
+                    void checkMapsConfig(0);
+                  }}
+                  className="inline-flex items-center gap-1.5 border border-cyan-400/50 bg-cyan-500/15 hover:bg-cyan-500/25 px-4 py-2 text-xs font-semibold text-cyan-200 transition"
+                >
+                  <RefreshCw size={13} />
+                  <span>Retry Map Connection</span>
+                </button>
+              )}
             </div>
           )}
         </div>
