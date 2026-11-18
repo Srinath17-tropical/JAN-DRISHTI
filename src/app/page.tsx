@@ -61,7 +61,6 @@ import ViciousToVirtuousCycle, {
 import MacroInflationRupeePanel, {
   type MacroInflationData,
 } from "../components/MacroInflationRupeePanel";
-import StoryboardVideoStudio from "../components/StoryboardVideoStudio";
 import {
   EducationInstitutionsPanel,
   EnvironmentWaterbodiesPanel,
@@ -85,6 +84,10 @@ import {
   SdgGoalBadge,
   type SdgSectorId,
 } from "../components/SdgVisualAssets";
+import IndiaMapTransitionBackdrop from "../components/IndiaMapTransitionBackdrop";
+import HyperlocalWeatherObservatory from "../components/HyperlocalWeatherObservatory";
+import MandiMarketObservatory from "../components/MandiMarketObservatory";
+import LiveTrafficCorridorStudio from "../components/LiveTrafficCorridorStudio";
 
 const DevelopmentMap = dynamic(
   () => import("../components/gis/DevelopmentMap"),
@@ -129,6 +132,7 @@ type Panel = "map" | "analytics" | "ai" | "gaps" | "readiness";
 
 type TransitionMode =
   | "section"
+  | "community"
   | "map"
   | "analytics"
   | "ai"
@@ -1729,6 +1733,10 @@ export default function Home() {
     setTransitionMode(mode);
     setTransition(true);
 
+    const isCommunityCinema = mode === "community";
+    const swapDelayMs = isCommunityCinema ? 1200 : 450;
+    const totalDurationMs = isCommunityCinema ? 3000 : 950;
+
     transitionTimers.current = [
       window.setTimeout(() => {
         callback();
@@ -1751,11 +1759,11 @@ export default function Home() {
             }
           }, 80);
         }
-      }, 450),
+      }, swapDelayMs),
       window.setTimeout(() => {
         setTransition(false);
         transitionTimers.current = [];
-      }, 950),
+      }, totalDurationMs),
     ];
   }
 
@@ -1764,12 +1772,15 @@ export default function Home() {
       return;
     }
 
+    const mode: TransitionMode =
+      next === "community" ? "community" : initialPanel ?? "section";
+
     triggerTransition(
       () => {
         setSection(next);
         setPanel(initialPanel);
       },
-      initialPanel ?? "section"
+      mode
     );
   }
 
@@ -1818,6 +1829,15 @@ export default function Home() {
           <CinematicTransition
             config={config}
             mode={transitionMode}
+            onSkip={() => {
+              transitionTimers.current.forEach((t) => window.clearTimeout(t));
+              transitionTimers.current = [];
+              if (transitionMode === "community") {
+                setSection("community");
+                setPanel(null);
+              }
+              setTransition(false);
+            }}
           />
         )}
 
@@ -2318,9 +2338,26 @@ export default function Home() {
           ) : section === "community" ? (
             <CommunityDevelopmentHub
               activeVillageName={selectedVillage?.profile.village_name ?? "Telangana Ward"}
+              activeMandalName={selectedVillage?.profile.mandal_name ?? "Mandal HQ"}
               activeDistrictName={selectedVillage?.profile.district_name ?? "Medak"}
+              activeVillageCode={selectedVillage?.profile.village_code}
+              activeVillageType={selectedVillage?.profile.type}
+              activeNearestSchool={selectedVillage?.education.nearest_school_name}
+              activeNearestHealth={selectedVillage?.health.nearest_health_name}
               activeLat={selectedVillage?.gis.lat}
               activeLon={selectedVillage?.gis.lon}
+              sectorScores={
+                selectedVillage
+                  ? {
+                      health: Math.round(selectedVillage.jan_drishti.health_score),
+                      education: Math.round(selectedVillage.jan_drishti.education_score),
+                      water: Math.round(selectedVillage.jan_drishti.water_score),
+                      livelihood: Math.round(selectedVillage.jan_drishti.livelihood_score),
+                      environment: Math.round(selectedVillage.jan_drishti.environment_score),
+                      overall: Math.round(selectedVillage.jan_drishti.overall_score),
+                    }
+                  : undefined
+              }
             />
           ) : (
             <DomainScreen
@@ -2413,12 +2450,116 @@ function IntroSequence({
 function CinematicTransition({
   config,
   mode,
+  onSkip,
 }: {
   config: DomainConfig;
   mode: TransitionMode;
+  onSkip?: () => void;
 }) {
   const Icon = config.icon;
   const domainKey = config.shortTitle.toLowerCase();
+
+  if (mode === "community") {
+    return (
+      <div
+        className="cinematic-transition fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#04070d]/97 backdrop-blur-xl"
+        data-transition-mode="community"
+        role="status"
+        aria-live="polite"
+      >
+        {/* Tricolor Aurora Ambient Field */}
+        <div
+          className="cinematic-prism-aurora absolute inset-0 pointer-events-none"
+          style={{
+            background: `
+              radial-gradient(circle at 26% 30%, rgba(255, 153, 51, 0.22) 0%, transparent 48%),
+              radial-gradient(circle at 74% 68%, rgba(16, 185, 129, 0.22) 0%, transparent 50%),
+              radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.14) 0%, transparent 56%)
+            `,
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Top & Bottom Tricolor Framing Bars */}
+        <div
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{
+            background: "linear-gradient(90deg, #ff9933, #ffffff, #10b981)",
+          }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-[3px]"
+          style={{
+            background: "linear-gradient(90deg, #10b981, #ffffff, #ff9933)",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* INDIA MAP DIRECTLY BEHIND THE CENTERED TEXT */}
+        <div
+          className="absolute inset-0 z-0 flex items-center justify-center opacity-80"
+          aria-hidden="true"
+        >
+          <IndiaMapTransitionBackdrop />
+        </div>
+
+        {/* Radial Soft Scrim for High Legibility Over India Map */}
+        <div
+          className="absolute inset-0 z-[5] pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, rgba(4,7,13,0.72) 0%, rgba(4,7,13,0.35) 52%, rgba(4,7,13,0.78) 100%)",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Centered Headline Text Over India Map */}
+        <div className="cinematic-transition-content relative z-10 max-w-4xl px-6 text-center flex flex-col items-center">
+          <div className="text-xs sm:text-sm font-mono tracking-[0.26em] uppercase text-amber-300">
+            Jan—Drishti · Viksit Bharat @ 2047
+          </div>
+
+          <h2 className="mt-4 text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-[1.08] drop-shadow-[0_8px_28px_rgba(0,0,0,0.95)] text-balance">
+            <span className="bg-gradient-to-r from-[#ff9933] via-white to-[#10b981] bg-clip-text text-transparent">
+              Participatory Governance
+            </span>
+            <br />
+            <span className="text-white">for Viksit Bharat</span>
+          </h2>
+
+          <p className="mt-4 text-xs sm:text-sm text-slate-200 max-w-xl leading-relaxed">
+            Citizen Engagement · Civic Tech · Elected Leaders&apos; Accountability · Civic Learning
+          </p>
+
+          {/* 3-Second Progress Sweep Bar */}
+          <div className="mt-7 w-72 sm:w-80 space-y-2">
+            <div className="h-[3px] w-full overflow-hidden bg-white/15">
+              <div
+                className="cinematic-progress-3s h-full w-0"
+                style={{
+                  background: "linear-gradient(90deg, #ff9933, #ffffff, #10b981)",
+                }}
+              />
+            </div>
+            <div className="text-[11px] font-mono text-slate-300">
+              Initializing Community Development &amp; Civic Participation...
+            </div>
+          </div>
+        </div>
+
+        {onSkip && (
+          <button
+            type="button"
+            onClick={onSkip}
+            className="absolute bottom-6 right-6 z-20 border border-white/20 bg-black/50 px-3.5 py-1.5 text-xs text-slate-200 hover:text-white hover:border-amber-300/60 transition"
+          >
+            Enter Hub
+          </button>
+        )}
+      </div>
+    );
+  }
 
   const palette =
     domainKey === "education"
@@ -2727,7 +2868,7 @@ function OverviewScreen({
                 className="px-6 py-3 border border-emerald-400/50 bg-gradient-to-r from-red-500/20 via-orange-500/20 to-emerald-500/25 hover:from-red-500/30 hover:to-emerald-500/35 transition flex items-center gap-2.5 text-xs font-semibold text-white whitespace-nowrap"
               >
                 <Sparkles size={15} className="text-emerald-300" />
-                <span>Break Vicious Cycle (Cinematic)</span>
+                <span>Break Vicious Cycle</span>
               </button>
 
               <a
@@ -2735,7 +2876,7 @@ function OverviewScreen({
                 className="px-6 py-3 border border-cyan-400/45 bg-cyan-500/15 hover:bg-cyan-500/25 transition flex items-center gap-2.5 text-xs font-semibold text-cyan-100 whitespace-nowrap"
               >
                 <TrendingUp size={15} className="text-cyan-300" />
-                <span>2026–2047 Prediction Simulator</span>
+                <span>2026–2047 Prediction Tool</span>
               </a>
 
             </div>
@@ -2837,18 +2978,26 @@ function OverviewScreen({
 
                 <div className="domain-card-bar absolute inset-x-0 top-0 h-[2.5px] z-20" />
 
-                {/* High-Resolution SDG Visual Header on Card */}
+                {/* Official UN SDG Square Icon Header on Sector Card */}
                 {sdgAsset && (
-                  <div className="relative h-28 w-full overflow-hidden border-b border-white/10 shrink-0">
+                  <div
+                    className="relative h-36 w-full flex items-center justify-between px-4 py-3 border-b border-white/15 shrink-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${sdgAsset.officialColor}ee 0%, ${sdgAsset.officialColor}bb 100%)`,
+                    }}
+                  >
                     <img
                       src={sdgAsset.imageSrc}
                       alt={sdgAsset.alt}
-                      referrerPolicy="no-referrer"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="h-28 w-28 object-contain border border-white/25 shadow-lg transition-transform duration-500 group-hover:scale-105 shrink-0"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#05080d] via-transparent to-black/25" />
-                    <div className="absolute top-2.5 left-2.5 z-10">
-                      <SdgGoalBadge sector={id as SdgSectorId} compact />
+                    <div className="pl-3 text-right">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-white/80">
+                        UN SDG Goal
+                      </div>
+                      <div className="text-2xl font-black font-mono text-white leading-none mt-0.5">
+                        {sdgAsset.goalNumber}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3060,65 +3209,12 @@ function OverviewScreen({
       />
 
       {/* =================================================
-          FREE STORYBOARD, INFOGRAPHIC PNG & BRIEFING VIDEO STUDIO
+          LIVE TRAFFIC CORRIDOR + WEATHER / HEATWAVE + e-NAM MANDI OBSERVATORIES
       ================================================= */}
-      <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12">
-        <StoryboardVideoStudio
-          lang={lang}
-          village={
-            insightsVillage
-              ? {
-                  villageName: insightsVillage.villageName,
-                  villageCode: insightsVillage.villageCode,
-                  mandalName: insightsVillage.mandalName,
-                  districtName: insightsVillage.districtName,
-                  population: insightsVillage.population,
-                  households: insightsVillage.households,
-                  areaSqKm: insightsVillage.areaSqKm,
-                  overallScore: insightsVillage.overallScore,
-                  vvi: insightsVillage.vvi,
-                  vviLevel: insightsVillage.vviLevel,
-                  geometry: insightsVillage.geometry,
-                  education: {
-                    score: insightsVillage.education.score,
-                    literacyRate: insightsVillage.education.literacyRate,
-                    femaleLiteracyRate: insightsVillage.education.femaleLiteracyRate,
-                    nearestSchoolKm: insightsVillage.education.nearestSchoolKm,
-                    nearestSchoolName: insightsVillage.education.nearestSchoolName,
-                  },
-                  health: {
-                    score: insightsVillage.health.score,
-                    latrinePct: insightsVillage.health.latrineWithinPct,
-                    cleanFuelPct: insightsVillage.health.cleanCookingFuelPct,
-                    nearestHealthKm: insightsVillage.health.nearestHealthKm,
-                    nearestHealthName: insightsVillage.health.nearestHealthName,
-                  },
-                  water: {
-                    score: insightsVillage.water.score,
-                    tapPct: insightsVillage.water.tapWaterTotalPct,
-                    tanksTotal: insightsVillage.water.tanksTotal,
-                    waterWithinPct: insightsVillage.water.waterWithinPremisesPct,
-                    nearestWaterKm: insightsVillage.water.nearestWaterKm,
-                  },
-                  livelihood: {
-                    score: insightsVillage.livelihood.score,
-                    wpr: insightsVillage.livelihood.wpr,
-                    marginalPct: insightsVillage.livelihood.marginalWorkerPct,
-                    bankingPct: insightsVillage.livelihood.bankingAccessPct,
-                    nearestHubKm: insightsVillage.livelihood.nearestLivelihoodKm,
-                  },
-                  environment: {
-                    score: insightsVillage.environment.score,
-                    solarMj: insightsVillage.environment.avgSolarMj,
-                    biomassPct: insightsVillage.environment.solidBiomassPct,
-                    tempC: insightsVillage.environment.currentTempC,
-                    pm25: insightsVillage.environment.pm25,
-                  },
-                }
-              : null
-          }
-          focusSector="overview"
-        />
+      <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 space-y-8">
+        <LiveTrafficCorridorStudio village={insightsVillage} />
+        <HyperlocalWeatherObservatory village={insightsVillage} />
+        <MandiMarketObservatory village={insightsVillage} />
       </section>
 
       {/* =================================================
@@ -3803,21 +3899,25 @@ function DomainScreen({
             </div>
 
             {section in SDG_SECTOR_ASSETS && (
-              <div className="relative overflow-hidden border border-white/15 bg-[#040812] shadow-2xl">
-                <div className="relative aspect-video w-full overflow-hidden">
+              <div className="relative border border-white/15 bg-[#040812] p-5 flex flex-col sm:flex-row items-center gap-5 shadow-2xl">
+                <div
+                  className="p-2 border border-white/20 shrink-0"
+                  style={{ backgroundColor: SDG_SECTOR_ASSETS[section as SdgSectorId].officialColor }}
+                >
                   <img
                     src={SDG_SECTOR_ASSETS[section as SdgSectorId].imageSrc}
                     alt={SDG_SECTOR_ASSETS[section as SdgSectorId].alt}
-                    referrerPolicy="no-referrer"
-                    className="h-full w-full object-cover"
+                    className="h-36 w-36 sm:h-40 sm:w-40 object-contain"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#040812] via-transparent to-transparent opacity-85" />
-                  <div className="absolute top-3 right-3">
-                    <SdgGoalBadge sector={section as SdgSectorId} compact />
-                  </div>
                 </div>
-                <div className="px-4 py-2.5 border-t border-white/10 text-[11px] font-mono text-white/75">
-                  {SDG_SECTOR_ASSETS[section as SdgSectorId].caption}
+                <div className="space-y-2.5 text-center sm:text-left">
+                  <div className="text-[11px] font-mono uppercase tracking-widest text-white/55">
+                    Official United Nations Sustainable Development Goal
+                  </div>
+                  <SdgGoalBadge sector={section as SdgSectorId} />
+                  <p className="text-xs text-white/75 leading-relaxed">
+                    {SDG_SECTOR_ASSETS[section as SdgSectorId].caption}
+                  </p>
                 </div>
               </div>
             )}
@@ -4013,71 +4113,15 @@ function DomainScreen({
           )}
 
           {panel === "ai" && (
-            <div className="space-y-6">
-              <DomainAI
-                config={config}
-                selectedVillage={selectedVillage}
-                featuredVillages={featuredVillages}
-                onSelectVillage={onSelectVillage}
-                agentResult={agentResult}
-                running={agentRunning}
-                onRun={onRunAgent}
-              />
-              {insightsVillage && (
-                <StoryboardVideoStudio
-                  lang={lang}
-                  village={{
-                    villageName: insightsVillage.villageName,
-                    villageCode: insightsVillage.villageCode,
-                    mandalName: insightsVillage.mandalName,
-                    districtName: insightsVillage.districtName,
-                    population: insightsVillage.population,
-                    households: insightsVillage.households,
-                    areaSqKm: insightsVillage.areaSqKm,
-                    overallScore: insightsVillage.overallScore,
-                    vvi: insightsVillage.vvi,
-                    vviLevel: insightsVillage.vviLevel,
-                    geometry: insightsVillage.geometry,
-                    education: {
-                      score: insightsVillage.education.score,
-                      literacyRate: insightsVillage.education.literacyRate,
-                      femaleLiteracyRate: insightsVillage.education.femaleLiteracyRate,
-                      nearestSchoolKm: insightsVillage.education.nearestSchoolKm,
-                      nearestSchoolName: insightsVillage.education.nearestSchoolName,
-                    },
-                    health: {
-                      score: insightsVillage.health.score,
-                      latrinePct: insightsVillage.health.latrineWithinPct,
-                      cleanFuelPct: insightsVillage.health.cleanCookingFuelPct,
-                      nearestHealthKm: insightsVillage.health.nearestHealthKm,
-                      nearestHealthName: insightsVillage.health.nearestHealthName,
-                    },
-                    water: {
-                      score: insightsVillage.water.score,
-                      tapPct: insightsVillage.water.tapWaterTotalPct,
-                      tanksTotal: insightsVillage.water.tanksTotal,
-                      waterWithinPct: insightsVillage.water.waterWithinPremisesPct,
-                      nearestWaterKm: insightsVillage.water.nearestWaterKm,
-                    },
-                    livelihood: {
-                      score: insightsVillage.livelihood.score,
-                      wpr: insightsVillage.livelihood.wpr,
-                      marginalPct: insightsVillage.livelihood.marginalWorkerPct,
-                      bankingPct: insightsVillage.livelihood.bankingAccessPct,
-                      nearestHubKm: insightsVillage.livelihood.nearestLivelihoodKm,
-                    },
-                    environment: {
-                      score: insightsVillage.environment.score,
-                      solarMj: insightsVillage.environment.avgSolarMj,
-                      biomassPct: insightsVillage.environment.solidBiomassPct,
-                      tempC: insightsVillage.environment.currentTempC,
-                      pm25: insightsVillage.environment.pm25,
-                    },
-                  }}
-                  focusSector={section}
-                />
-              )}
-            </div>
+            <DomainAI
+              config={config}
+              selectedVillage={selectedVillage}
+              featuredVillages={featuredVillages}
+              onSelectVillage={onSelectVillage}
+              agentResult={agentResult}
+              running={agentRunning}
+              onRun={onRunAgent}
+            />
           )}
 
           {panel === "gaps" && (
@@ -4874,11 +4918,14 @@ function DomainMap({
         />
       )}
       {activeDomain === "health" && (
-        <HealthcareServiceMatrixPanel
-          lang={lang}
-          village={insightsVillage}
-          healthcareTiers={stateInsights?.healthcare_tiers ?? []}
-        />
+        <div className="space-y-8">
+          <HealthcareServiceMatrixPanel
+            lang={lang}
+            village={insightsVillage}
+            healthcareTiers={stateInsights?.healthcare_tiers ?? []}
+          />
+          <LiveTrafficCorridorStudio village={insightsVillage} />
+        </div>
       )}
       {activeDomain === "environment" && (
         <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
@@ -7178,6 +7225,19 @@ function CinematicStyles() {
 
       .cinematic-progress-sweep {
         animation: tricolorSlide 0.95s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+
+      @keyframes fillProgress3s {
+        0% {
+          width: 0%;
+        }
+        100% {
+          width: 100%;
+        }
+      }
+
+      .cinematic-progress-3s {
+        animation: fillProgress3s 3s linear forwards;
       }
 
       .overview-data-field {

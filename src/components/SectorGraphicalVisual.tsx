@@ -818,7 +818,7 @@ function SectorCinemaModal({
           className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-white text-slate-900 hover:bg-orange-100 shrink-0"
         >
           <X size={14} />
-          <span>Close Cinema</span>
+          <span>Close Expanded View</span>
         </button>
       </div>
 
@@ -918,7 +918,7 @@ export default function SectorGraphicalVisual({
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-gradient-to-r from-orange-600 to-emerald-600 hover:opacity-95 text-white transition whitespace-nowrap"
           >
             <Maximize2 size={12} />
-            <span>Full-Screen Cinema</span>
+            <span>Expanded View</span>
           </button>
         </div>
       </div>

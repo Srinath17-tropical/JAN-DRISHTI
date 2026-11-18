@@ -1003,6 +1003,396 @@ async function startServer() {
     }
   });
 
+  // Live Hyperlocal Weather, Heatwave Stress & Monsoon Inflow Telemetry (Open-Meteo Proxy)
+  const weatherTelemetryCache = new Map<string, { ts: number; payload: any }>();
+  app.get("/api/telemetry/weather", async (req, res) => {
+    const latNum = Number(req.query.lat ?? 17.385);
+    const lonNum = Number(req.query.lon ?? 78.4867);
+    const lat = Number.isFinite(latNum) ? Number(latNum.toFixed(3)) : 17.385;
+    const lon = Number.isFinite(lonNum) ? Number(lonNum.toFixed(3)) : 78.4867;
+    const villageName = String(req.query.village ?? "Telangana Settlement").trim();
+    const districtName = String(req.query.district ?? "Telangana").trim();
+    const cacheKey = `${lat},${lon}`;
+    const cached = weatherTelemetryCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
+      res.json({ ...cached.payload, villageName, districtName, cached: true });
+      return;
+    }
+
+    try {
+      const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,weather_code&hourly=temperature_2m,precipitation_probability,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,uv_index_max&timezone=Asia%2FKolkata&forecast_days=7`;
+      const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5,pm10,us_aqi&timezone=Asia%2FKolkata`;
+
+      const [fRes, aRes] = await Promise.all([
+        fetch(forecastUrl, { signal: AbortSignal.timeout(6500) }),
+        fetch(airUrl, { signal: AbortSignal.timeout(6500) }),
+      ]);
+      if (!fRes.ok) {
+        throw new Error(`Open-Meteo forecast returned ${fRes.status}`);
+      }
+      const fJson: any = await fRes.json();
+      const aJson: any = aRes.ok ? await aRes.json() : null;
+
+      const currentTempC = Number(fJson?.current?.temperature_2m ?? 32.4);
+      const apparentTempC = Number(fJson?.current?.apparent_temperature ?? currentTempC + 1.5);
+      const humidityPct = Number(fJson?.current?.relative_humidity_2m ?? 52);
+      const windKmh = Number(fJson?.current?.wind_speed_10m ?? 11.2);
+      const weatherCode = Number(fJson?.current?.weather_code ?? 1);
+      const currentRainMm = Number(fJson?.current?.precipitation ?? 0);
+
+      const pm25 = Number(aJson?.current?.pm2_5 ?? 24.5);
+      const pm10 = Number(aJson?.current?.pm10 ?? 41.0);
+      const usAqi = Number(aJson?.current?.us_aqi ?? 74);
+
+      const hourlyTimes: string[] = Array.isArray(fJson?.hourly?.time) ? fJson.hourly.time : [];
+      const hourlyTemps: number[] = Array.isArray(fJson?.hourly?.temperature_2m) ? fJson.hourly.temperature_2m : [];
+      const hourlyRain: number[] = Array.isArray(fJson?.hourly?.precipitation) ? fJson.hourly.precipitation : [];
+      const hourlyPop: number[] = Array.isArray(fJson?.hourly?.precipitation_probability)
+        ? fJson.hourly.precipitation_probability
+        : [];
+
+      const hourly = hourlyTimes.slice(0, 24).map((iso, idx) => ({
+        hour: iso.slice(11, 16),
+        tempC: Number((hourlyTemps[idx] ?? currentTempC).toFixed(1)),
+        rainMm: Number((hourlyRain[idx] ?? 0).toFixed(2)),
+        rainProbPct: Number(hourlyPop[idx] ?? 0),
+      }));
+
+      const dailyTimes: string[] = Array.isArray(fJson?.daily?.time) ? fJson.daily.time : [];
+      const dailyMax: number[] = Array.isArray(fJson?.daily?.temperature_2m_max) ? fJson.daily.temperature_2m_max : [];
+      const dailyMin: number[] = Array.isArray(fJson?.daily?.temperature_2m_min) ? fJson.daily.temperature_2m_min : [];
+      const dailyRain: number[] = Array.isArray(fJson?.daily?.precipitation_sum) ? fJson.daily.precipitation_sum : [];
+      const dailyUv: number[] = Array.isArray(fJson?.daily?.uv_index_max) ? fJson.daily.uv_index_max : [];
+      const dailyCode: number[] = Array.isArray(fJson?.daily?.weather_code) ? fJson.daily.weather_code : [];
+
+      const daily = dailyTimes.map((dateStr, idx) => ({
+        date: dateStr,
+        label: new Date(`${dateStr}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        }),
+        maxTempC: Number((dailyMax[idx] ?? 35).toFixed(1)),
+        minTempC: Number((dailyMin[idx] ?? 23).toFixed(1)),
+        rainMm: Number((dailyRain[idx] ?? 0).toFixed(1)),
+        uvMax: Number((dailyUv[idx] ?? 7).toFixed(1)),
+        weatherCode: Number(dailyCode[idx] ?? 1),
+      }));
+
+      const forecast7dRainMm = Number(
+        daily.reduce((sum, d) => sum + d.rainMm, 0).toFixed(1)
+      );
+      const peakDailyMax = daily.reduce((m, d) => Math.max(m, d.maxTempC), currentTempC);
+
+      const heatAdvisory =
+        apparentTempC >= 42 || peakDailyMax >= 42
+          ? {
+              level: "Heatwave Alert",
+              tone: "critical",
+              workWindow: "06:00–10:30 AM & 04:30–06:30 PM",
+              guidance:
+                "Shift MGNREGA works before 10:30 AM, open Gram Panchayat ORS chhatris, and inspect school drinking-water shade.",
+            }
+          : apparentTempC >= 37 || peakDailyMax >= 38
+          ? {
+              level: "Heat Caution",
+              tone: "amber",
+              workWindow: "06:30–11:30 AM & 04:00–06:30 PM",
+              guidance:
+                "Provide mandatory 20-minute shade & ORS breaks for outdoor workers and midday Anganwadi heat checks.",
+            }
+          : {
+              level: "Normal Comfort",
+              tone: "emerald",
+              workWindow: "Standard Full-Day Schedule",
+              guidance:
+                "Ambient heat load within safe bounds; maintain routine ASHA hydration outreach.",
+            };
+
+      const payload = {
+        source: "Open-Meteo Live Meteorological & CAMS Air Quality Feed",
+        lat,
+        lon,
+        villageName,
+        districtName,
+        fetchedAt: new Date().toISOString(),
+        current: {
+          tempC: currentTempC,
+          apparentTempC,
+          humidityPct,
+          windKmh,
+          weatherCode,
+          rainMm: currentRainMm,
+          pm25,
+          pm10,
+          usAqi,
+        },
+        forecast7dRainMm,
+        heatAdvisory,
+        hourly,
+        daily,
+      };
+      weatherTelemetryCache.set(cacheKey, { ts: Date.now(), payload });
+      res.json(payload);
+    } catch {
+      const baseTemp = 31.8;
+      const hourly = Array.from({ length: 12 }, (_, i) => {
+        const hr = (new Date().getHours() + i * 2) % 24;
+        const curve = Math.sin(((hr - 6) / 24) * Math.PI * 2);
+        return {
+          hour: `${String(hr).padStart(2, "0")}:00`,
+          tempC: Number((baseTemp + curve * 4.5).toFixed(1)),
+          rainMm: 0,
+          rainProbPct: 12,
+        };
+      });
+      const daily = Array.from({ length: 7 }, (_, i) => {
+        const dt = new Date(Date.now() + i * 86400000);
+        return {
+          date: dt.toISOString().slice(0, 10),
+          label: dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }),
+          maxTempC: 34.5,
+          minTempC: 23.2,
+          rainMm: i % 3 === 1 ? 6.4 : 0.8,
+          uvMax: 7.4,
+          weatherCode: i % 3 === 1 ? 61 : 2,
+        };
+      });
+      res.json({
+        source: "Telangana District Baseline Climatology (Fallback)",
+        lat,
+        lon,
+        villageName,
+        districtName,
+        fetchedAt: new Date().toISOString(),
+        current: {
+          tempC: baseTemp,
+          apparentTempC: 33.4,
+          humidityPct: 48,
+          windKmh: 10.5,
+          weatherCode: 2,
+          rainMm: 0,
+          pm25: 25.0,
+          pm10: 42.0,
+          usAqi: 76,
+        },
+        forecast7dRainMm: 16.0,
+        heatAdvisory: {
+          level: "Normal Comfort",
+          tone: "emerald",
+          workWindow: "Standard Full-Day Schedule",
+          guidance: "Baseline meteorological telemetry loaded; live sync retries automatically.",
+        },
+        hourly,
+        daily,
+      });
+    }
+  });
+
+  function resolveServerMapsApiKey(): string {
+    return (
+      process.env.VITE_GOOGLE_MAPS_API_KEY ||
+      process.env.GOOGLE_MAPS_API_KEY ||
+      process.env.MAPS_API_KEY ||
+      ""
+    ).trim();
+  }
+
+  function haversineKmServer(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return Number((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
+  }
+
+  function parseGoogleDurationSeconds(durStr: unknown): number {
+    if (typeof durStr !== "string") return 0;
+    const m = /^(\d+(?:\.\d+)?)s$/.exec(durStr.trim());
+    return m ? Math.round(Number(m[1])) : 0;
+  }
+
+  // Client Google Maps JS API key config check (reads runtime env if provided via server environment)
+  app.get("/api/maps/config", (_req, res) => {
+    const apiKey = resolveServerMapsApiKey();
+    res.json({
+      hasKey: Boolean(apiKey),
+      apiKey,
+    });
+  });
+
+  // Server-side proxy for Google Maps Platform Routes API v2 (TRAFFIC_AWARE) across nearest village infrastructure corridors
+  app.post("/api/maps/corridors", async (req, res) => {
+    try {
+      ensureCoreDataLoaded();
+      const body = req.body ?? {};
+      const originLat = Number(body.origin?.lat ?? 17.85);
+      const originLng = Number(body.origin?.lng ?? 78.82);
+      const villageCode = String(body.villageCode ?? "").trim();
+      const travelMode = body.travelMode === "TWO_WHEELER" ? "TWO_WHEELER" : "DRIVE";
+
+      const v = villageCode ? villagesByCode?.get(villageCode) : undefined;
+      const lat = Number.isFinite(originLat) ? originLat : v?.lat ?? 17.85;
+      const lng = Number.isFinite(originLng) ? originLng : v?.lon ?? 78.82;
+
+      const sectorTargets: {
+        id: "health" | "education" | "livelihood";
+        label: string;
+        sectorName: string;
+        fallbackSpeedKmh: number;
+      }[] = [
+        { id: "health", label: "Health Access Corridor", sectorName: "SDG 3 · Public Health Facility", fallbackSpeedKmh: 36 },
+        { id: "education", label: "School / College Corridor", sectorName: "SDG 4 · Educational Institution", fallbackSpeedKmh: 38 },
+        { id: "livelihood", label: "Mandi / Banking Corridor", sectorName: "SDG 8 · Market & Banking Hub", fallbackSpeedKmh: 40 },
+      ];
+
+      const apiKey = resolveServerMapsApiKey();
+      let quotaExceeded = false;
+
+      const corridors = await Promise.all(
+        sectorTargets.map(async (target) => {
+          const gis = getSectorGis(target.id);
+          const facilities: any[] = Array.isArray(gis?.facilities) ? gis.facilities : [];
+          let nearest: any = null;
+          let bestDistKm = Infinity;
+          for (const f of facilities) {
+            if (typeof f?.lat !== "number" || typeof f?.lon !== "number") continue;
+            const fname = String(f?.name ?? "").toLowerCase();
+            if (target.id === "health" && /veter|vetern|animal|pet\b/.test(fname)) continue;
+            const d = haversineKmServer(lat, lng, f.lat, f.lon);
+            if (d < bestDistKm && d > 0.05) {
+              bestDistKm = d;
+              nearest = f;
+            }
+          }
+
+          const destLat = nearest ? Number(nearest.lat) : Number((lat + 0.032).toFixed(5));
+          const destLng = nearest ? Number(nearest.lon) : Number((lng + 0.038).toFixed(5));
+          const destName = nearest?.name || `Nearest ${target.label}`;
+          const destCategory = nearest?.category || target.sectorName;
+          const straightKm = Number.isFinite(bestDistKm)
+            ? bestDistKm
+            : haversineKmServer(lat, lng, destLat, destLng);
+
+          if (apiKey) {
+            try {
+              const gmpRes = await fetch(
+                "https://routes.googleapis.com/directions/v2:computeRoutes",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": apiKey,
+                    "X-Goog-Maps-Solution-ID": "gmp_mcp_codeassist_v1_aistudio",
+                    "X-Goog-FieldMask":
+                      "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.viewport",
+                  },
+                  body: JSON.stringify({
+                    origin: {
+                      location: {
+                        latLng: { latitude: lat, longitude: lng },
+                      },
+                    },
+                    destination: {
+                      location: {
+                        latLng: { latitude: destLat, longitude: destLng },
+                      },
+                    },
+                    travelMode,
+                    routingPreference: "TRAFFIC_AWARE",
+                  }),
+                  signal: AbortSignal.timeout(7000),
+                }
+              );
+
+              if (gmpRes.status === 429) {
+                quotaExceeded = true;
+              } else {
+                const payload: any = await gmpRes.json();
+                if (payload?.error?.status === "RESOURCE_EXHAUSTED") {
+                  quotaExceeded = true;
+                } else if (gmpRes.ok && Array.isArray(payload?.routes) && payload.routes[0]) {
+                  const r = payload.routes[0];
+                  const durationSec = parseGoogleDurationSeconds(r.duration);
+                  const staticSec = parseGoogleDurationSeconds(r.staticDuration) || durationSec;
+                  const distanceKm = Number(((Number(r.distanceMeters ?? straightKm * 1250)) / 1000).toFixed(2));
+                  const liveMinutes = Math.max(1, Math.round(durationSec / 60));
+                  const baselineMinutes = Math.max(1, Math.round(staticSec / 60));
+                  const delayMinutes = Math.max(0, liveMinutes - baselineMinutes);
+                  const congestionLevel =
+                    delayMinutes >= 8 || (baselineMinutes > 0 && liveMinutes / baselineMinutes >= 1.35)
+                      ? "Congested"
+                      : delayMinutes >= 3 || (baselineMinutes > 0 && liveMinutes / baselineMinutes >= 1.15)
+                      ? "Moderate Slowdown"
+                      : "Clear Corridor";
+
+                  return {
+                    id: target.id,
+                    label: target.label,
+                    sectorName: target.sectorName,
+                    destinationName: destName,
+                    destinationCategory: destCategory,
+                    destination: { lat: destLat, lng: destLng },
+                    distanceKm,
+                    liveMinutes,
+                    baselineMinutes,
+                    delayMinutes,
+                    congestionLevel,
+                    encodedPolyline: r.polyline?.encodedPolyline ?? null,
+                    viewport: r.viewport ?? null,
+                    source: "Google Maps Routes API (TRAFFIC_AWARE)",
+                  };
+                }
+              }
+            } catch {
+              // Fall through to deterministic road geometry baseline
+            }
+          }
+
+          const estRoadKm = Number((straightKm * 1.26).toFixed(2));
+          const baselineMinutes = Math.max(2, Math.round((estRoadKm / target.fallbackSpeedKmh) * 60));
+          return {
+            id: target.id,
+            label: target.label,
+            sectorName: target.sectorName,
+            destinationName: destName,
+            destinationCategory: destCategory,
+            destination: { lat: destLat, lng: destLng },
+            distanceKm: estRoadKm,
+            liveMinutes: baselineMinutes,
+            baselineMinutes,
+            delayMinutes: 0,
+            congestionLevel: "Road Baseline (Live Sync Pending)",
+            encodedPolyline: null,
+            viewport: null,
+            source: "Road Distance Baseline Estimate",
+          };
+        })
+      );
+
+      if (quotaExceeded) {
+        res.status(429).json({
+          error: { status: "RESOURCE_EXHAUSTED", message: "Google Maps Routes API quota exceeded." },
+          corridors,
+        });
+        return;
+      }
+
+      res.json({
+        origin: { lat, lng, villageName: v?.vn ?? "Telangana Settlement" },
+        travelMode,
+        corridors,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // Telangana Village Boundaries GeoJSON (by Mandal, District, or Statewide sample)
   app.get("/api/gis/villages", (req, res) => {
     try {
@@ -1676,7 +2066,7 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
   });
 
   /* =========================================================
-     COMMUNITY DEVELOPMENT FACILITY (FULL-STACK PERSISTENT HUB)
+     COMMUNITY DEVELOPMENT FACILITY (CIVIC GRIEVANCE & RESOLUTION PORTAL)
   ========================================================= */
 
   type CommunitySectorKey = "education" | "health" | "water" | "livelihood" | "environment";
@@ -1690,17 +2080,38 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     pledgers: string[];
   };
 
+  type CaseTimelineEntry = {
+    id: string;
+    date: string;
+    actor: string;
+    action: string;
+    note: string;
+  };
+
   type CommunityActionRoom = {
     id: string;
     sector: CommunitySectorKey;
+    categoryId: string;
+    categoryLabel: string;
     title: string;
     description: string;
     institutionName: string;
     villageName: string;
+    mandalName: string;
     districtName: string;
+    settlementType: "Rural Gram Panchayat" | "Municipal Ward / Town";
+    affectedPeople: number;
     reporterName: string;
     severity: "Critical" | "High" | "Moderate";
     status: "open" | "mobilizing" | "resolved";
+    recommendedPathway: "govt_escalation" | "ngo_collab" | "youth_mobilization" | "hybrid";
+    pathwayHeadline: string;
+    escalationStatus: "Not Escalated" | "Petition Generated" | "Submitted to Officer / MLA" | "Acknowledged" | "Resolved";
+    escalatedTo?: string;
+    govtTicketRef?: string;
+    escalatedAt?: string;
+    youthDriveTitle?: string;
+    petitionText?: string;
     upvotes: number;
     createdAt: string;
     gpsLabel: string;
@@ -1716,11 +2127,13 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     adoptedNgo?: string;
     csrMatchStatus?: string;
     needs: CommunityResourceNeed[];
+    timeline: CaseTimelineEntry[];
   };
 
   type CommunityDrive = {
     id: string;
     sector: CommunitySectorKey;
+    linkedIssueId?: string;
     title: string;
     dateLabel: string;
     timeSlot: string;
@@ -1772,83 +2185,282 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     verifiedActions: number;
   };
 
+  type CommunityObligationStatus = "Pending" | "In Progress" | "Completed";
+
+  type CommunityObligationRecord = {
+    id: string;
+    sector: CommunitySectorKey;
+    title: string;
+    description: string;
+    youthAndKidsRole: string;
+    targetMetric: string;
+    status: CommunityObligationStatus;
+    contributorsCount: number;
+    lastUpdated: string;
+  };
+
+  type SaplingAdoption = {
+    id: string;
+    guardianName: string;
+    species: string;
+    landmark: string;
+    villageName: string;
+    adoptedAt: string;
+  };
+
+  type BudgetProposalStatus =
+    | "Proposed"
+    | "Shortlisted in Ward Budget"
+    | "Sanctioned";
+
+  type BudgetProposal = {
+    id: string;
+    sector: CommunitySectorKey;
+    title: string;
+    rationale: string;
+    location: string;
+    estimatedCostLakhs: number;
+    votes: number;
+    votedByUser: boolean;
+    proposerName: string;
+    status: BudgetProposalStatus;
+    assignedLeaderRole: string;
+    createdAt: string;
+  };
+
+  type WardSabhaMeeting = {
+    id: string;
+    title: string;
+    sabhaType: "Area Sabha" | "Ward Committee" | "Gram Sabha";
+    dateLabel: string;
+    timeSlot: string;
+    venue: string;
+    chairRole: string;
+    agendaItems: string[];
+    attendeeCount: number;
+    rsvpedByUser: boolean;
+    status: "Upcoming" | "Minutes Filed";
+    resolutionSummary?: string;
+  };
+
+  type WardLeaderProfile = {
+    id: string;
+    roleTitle: string;
+    tier: "Elected Ward / GP" | "Mandal / Municipal Officer" | "Constituency MLA / Collectorate";
+    officeName: string;
+    statutoryMandate: string;
+    helplineOrPortal: string;
+    slaDays: number;
+    resolvedCount: number;
+    budgetUtilizedPct: number;
+    dispatchedRequests: {
+      id: string;
+      subject: string;
+      sender: string;
+      date: string;
+      linkedRef?: string;
+    }[];
+  };
+
+  type CivicLearningRecord = {
+    moduleId: string;
+    completionsCount: number;
+    completedByUser: boolean;
+    latestReflection?: string;
+    lastCompletedAt?: string;
+  };
+
   type CommunityHubState = {
+    schemaVersion?: number;
+    obligations: CommunityObligationRecord[];
     issues: CommunityActionRoom[];
     drives: CommunityDrive[];
     volunteerSlots: VolunteerTeachingSlot[];
     wishlists: InstitutionWishlist[];
     certificates: BalMitraCert[];
     champions: CivicChampionEntry[];
-    ngoDirectory: { name: string; focus: string; wardReach: string }[];
+    saplings: SaplingAdoption[];
+    budgetProposals: BudgetProposal[];
+    wardMeetings: WardSabhaMeeting[];
+    wardLeaders: WardLeaderProfile[];
+    learningProgress: CivicLearningRecord[];
+    ngoDirectory: { name: string; focus: string; wardReach: string; sectors?: CommunitySectorKey[] }[];
   };
 
   const COMMUNITY_STATE_FILE = path.join(DATA_DIR, "community_hub_state.json");
 
+  function computeServerRouting(input: {
+    sector: CommunitySectorKey;
+    categoryId?: string;
+    title: string;
+    description: string;
+    severity: "Critical" | "High" | "Moderate";
+    settlementType: "Rural Gram Panchayat" | "Municipal Ward / Town";
+    affectedPeople: number;
+    villageName: string;
+    mandalName: string;
+    districtName: string;
+    institutionName: string;
+    gpsLabel: string;
+    reporterName: string;
+  }) {
+    const isUrban = input.settlementType === "Municipal Ward / Town";
+    const text = `${input.title} ${input.description}`.toLowerCase();
+    const isStructural =
+      input.severity === "Critical" ||
+      /pipe|leak|sewage|drain|roof|building|toilet|doctor|medicine|wage|pension|transformer|contaminated/.test(text);
+    const isYouthFriendly =
+      /library|tuition|teach|book|sapling|tree|plant|rally|poster|clean|waste/.test(text);
+
+    const recommendedPathway: CommunityActionRoom["recommendedPathway"] = isStructural
+      ? "govt_escalation"
+      : isYouthFriendly
+      ? "youth_mobilization"
+      : input.sector === "livelihood"
+      ? "ngo_collab"
+      : "hybrid";
+
+    const officerBySector: Record<CommunitySectorKey, string> = {
+      education: `Mandal Educational Officer (MEO) & DEO (${input.districtName})`,
+      health: isUrban
+        ? `Municipal Health Officer & DMHO (${input.districtName})`
+        : `MPDO, PHC Medical Officer & DMHO (${input.districtName})`,
+      water: `Assistant Engineer (Mission Bhagiratha / RWS) & Municipal Water Works`,
+      livelihood: `MPDO / APO (MGNREGS) & SERP District Project Manager`,
+      environment: isUrban
+        ? `Municipal Commissioner & TSPCB Regional Officer`
+        : `Panchayat Secretary, Forest Range Officer & TSPCB`,
+    };
+
+    const repLabel = isUrban
+      ? `Ward Corporator & Constituency MLA (${input.districtName})`
+      : `Gram Sarpanch & Constituency MLA (${input.mandalName})`;
+
+    const pathwayHeadline =
+      recommendedPathway === "govt_escalation"
+        ? `Escalate to ${officerBySector[input.sector]} & ${repLabel}`
+        : recommendedPathway === "ngo_collab"
+        ? `Collaborate with Sector NGO Partner + ${repLabel} Intimation`
+        : recommendedPathway === "youth_mobilization"
+        ? `Mobilize NSS Youth & Teacher-Supervised Bal Mitra Squad`
+        : `Hybrid: File Official Petition to ${officerBySector[input.sector]} + NGO/Youth Support`;
+
+    return {
+      recommendedPathway,
+      pathwayHeadline,
+      categoryLabel: input.categoryId || `${input.sector.toUpperCase()} Citizen Grievance`,
+      defaultOfficer: `${officerBySector[input.sector]} + ${repLabel}`,
+    };
+  }
+
+  function createSeedObligations(): CommunityObligationRecord[] {
+    return [
+      // Pillar 1: Health (SDG 3)
+      { id: "obl-hea-1", sector: "health", title: "Vector-Free Zone", description: "Monthly inspections to eliminate stagnant water in open drains, tires, and vacant plots to prevent dengue & malaria.", youthAndKidsRole: "Home Mosquito Patrols (flowerpots & coolers)", targetMetric: "Monthly Ward Inspection", status: "In Progress", contributorsCount: 14, lastUpdated: "2026-11-16" },
+      { id: "obl-hea-2", sector: "health", title: "100% Maternal & Child Tracking", description: "Verify every pregnant woman and child <5 is registered with Anganwadi or PHC for immunization & nutrition.", youthAndKidsRole: "NSS/Nursing youth assist ASHA survey", targetMetric: "100% Anganwadi Coverage", status: "Completed", contributorsCount: 9, lastUpdated: "2026-11-12" },
+      { id: "obl-hea-3", sector: "health", title: "Quarterly Preventive Health Camps", description: "Partner with clinics or NGOs for free BP, diabetes, anemia, and eye screening camps every 90 days.", youthAndKidsRole: "College & medical students manage camp desks", targetMetric: "1 Camp / 90 Days", status: "In Progress", contributorsCount: 11, lastUpdated: "2026-11-14" },
+      { id: "obl-hea-4", sector: "health", title: "Community First-Responder Squad", description: "Train at least 10 local youth volunteers per ward in basic CPR, first aid, heatstroke & snakebite response.", youthAndKidsRole: "10 certified Youth First-Responders", targetMetric: "10 Trained Youth", status: "Pending", contributorsCount: 4, lastUpdated: "2026-11-10" },
+      { id: "obl-hea-5", sector: "health", title: "Mental Health & Substance Abuse Awareness", description: "Host bi-annual youth & parent workshops addressing stress, addiction, and emotional well-being.", youthAndKidsRole: "Youth clubs host peer counselor circles", targetMetric: "2 Workshops / Year", status: "Pending", contributorsCount: 3, lastUpdated: "2026-11-08" },
+
+      // Pillar 2: Education (SDG 4)
+      { id: "obl-edu-1", sector: "education", title: "Zero Out-of-School Children", description: "Neighborhood survey to identify school dropouts or child laborers and enroll 100% in local schools.", youthAndKidsRole: "Youth map households & aid SMC enrollment", targetMetric: "100% Enrollment", status: "Completed", contributorsCount: 12, lastUpdated: "2026-11-11" },
+      { id: "obl-edu-2", sector: "education", title: "School Infrastructure Audit", description: "Ensure every school has functional separate toilets, clean drinking water, electricity, and intact roofs.", youthAndKidsRole: "Youth/SMC parents log quarterly checklist", targetMetric: "Quarterly School Check", status: "In Progress", contributorsCount: 16, lastUpdated: "2026-11-16" },
+      { id: "obl-edu-3", sector: "education", title: "Weekend Remedial & Reading Clubs", description: "College students & retired residents run 2-hr weekend classes for slow learners, foundational literacy & math.", youthAndKidsRole: "Youth lead weekend tutoring; kids buddy up", targetMetric: "2 Hrs Every Weekend", status: "In Progress", contributorsCount: 19, lastUpdated: "2026-11-15" },
+      { id: "obl-edu-4", sector: "education", title: "Digital Literacy for Elders & Women", description: "Youth volunteers host monthly workshops teaching smartphone banking, UPI safety, and basic computer skills.", youthAndKidsRole: "Tech youth host 1-on-1 UPI clinics", targetMetric: "Monthly Clinic", status: "Pending", contributorsCount: 6, lastUpdated: "2026-11-09" },
+      { id: "obl-edu-5", sector: "education", title: "Neighborhood Book & Stationery Bank", description: "Maintain a community drop-box at the library or hall to recycle textbooks, uniforms, and school bags.", youthAndKidsRole: "School kids donate books & curate shelves", targetMetric: "Active Drop-Box", status: "Completed", contributorsCount: 22, lastUpdated: "2026-11-13" },
+
+      // Pillar 3: Water (SDG 6)
+      { id: "obl-wat-1", sector: "water", title: "100% Safe Drinking Water Access", description: "Conduct quarterly water-quality testing (TDS and contamination checks) at public taps, borewells, and school filters.", youthAndKidsRole: "Science students & youth run FTK TDS tests", targetMetric: "Quarterly Lab / FTK Test", status: "In Progress", contributorsCount: 13, lastUpdated: "2026-11-15" },
+      { id: "obl-wat-2", sector: "water", title: "Zero Open Defecation & Urination Spots", description: "Maintain clean, well-lit public toilets and eliminate open urination corners through monitoring & beautification.", youthAndKidsRole: "Community murals & school sanitation teams", targetMetric: "Zero Open Spots", status: "Completed", contributorsCount: 18, lastUpdated: "2026-11-12" },
+      { id: "obl-wat-3", sector: "water", title: "Rainwater Harvesting & Groundwater Recharge", description: "Build or revive at least one rainwater recharge pit per street, apartment complex, or public building.", youthAndKidsRole: "Youth NSS teams audit roof-to-pit pipes", targetMetric: "1 Pit / Street", status: "Pending", contributorsCount: 5, lastUpdated: "2026-11-10" },
+      { id: "obl-wat-4", sector: "water", title: "Local Water Body Adoption", description: "Adopt nearby lakes, stepwells, or ponds for quarterly silt removal, weeding, and boundary protection.", youthAndKidsRole: "18+ youth squads lead lake clean-up drives", targetMetric: "Quarterly Tank Audit", status: "Completed", contributorsCount: 31, lastUpdated: "2026-11-14" },
+      { id: "obl-wat-5", sector: "water", title: "Greywater & Drain Maintenance", description: "Keep neighborhood storm drains free of plastic silt before the monsoon arrives.", youthAndKidsRole: "Kids flag leaks; youth clear pre-monsoon drains", targetMetric: "Pre-Monsoon Clearance", status: "In Progress", contributorsCount: 15, lastUpdated: "2026-11-16" },
+
+      // Pillar 4: Livelihood (SDG 8)
+      { id: "obl-liv-1", sector: "livelihood", title: "Local Skill & Unemployment Registry", description: "Maintain an opt-in directory of unemployed youth and homemakers looking for vocational training or local jobs.", youthAndKidsRole: "Youth coordinators update skill registry", targetMetric: "Updated Monthly", status: "In Progress", contributorsCount: 10, lastUpdated: "2026-11-14" },
+      { id: "obl-liv-2", sector: "livelihood", title: "Active Women's Self-Help Groups (SHGs)", description: "Support local women in forming or strengthening SHGs for tailoring, food processing, handicrafts, or urban farming.", youthAndKidsRole: "College youth help SHGs build digital catalogs", targetMetric: "All SHGs Market-Linked", status: "In Progress", contributorsCount: 17, lastUpdated: "2026-11-15" },
+      { id: "obl-liv-3", sector: "livelihood", title: "100% Government Scheme Saturation", description: "Run camps to ensure all eligible artisans, street vendors, and workers receive PM-SVANidhi, PM-Vishwakarma, Mudra, or e-Shram.", youthAndKidsRole: "Youth assist vendors with document verification", targetMetric: "100% Eligible Enrolled", status: "Pending", contributorsCount: 7, lastUpdated: "2026-11-11" },
+      { id: "obl-liv-4", sector: "livelihood", title: 'Hyper-Local Circular Economy ("Vocal for Local")', description: "Map and promote neighborhood carpenters, plumbers, tailors, farmers, and small vendors inside the app.", youthAndKidsRole: "Youth onboard artisans onto UPI QR & maps", targetMetric: "Local Vendor Map", status: "Pending", contributorsCount: 6, lastUpdated: "2026-11-09" },
+      { id: "obl-liv-5", sector: "livelihood", title: "Youth Apprenticeship & Mentorship", description: "Connect local business owners with young adults for 3-month paid or certified skill internships.", youthAndKidsRole: "Workshops mentor local youth trainees", targetMetric: "3-Month Internships", status: "Pending", contributorsCount: 4, lastUpdated: "2026-11-07" },
+
+      // Pillar 5: Environment (SDG 13)
+      { id: "obl-env-1", sector: "environment", title: "Plastic-Free Streets & Markets", description: "Organize monthly plastic collection drives and convince vegetable & grocery vendors to switch to cloth or paper bags.", youthAndKidsRole: "Youth lead plastic drives & vendor pledges", targetMetric: "Monthly Market Drive", status: "In Progress", contributorsCount: 21, lastUpdated: "2026-11-16" },
+      { id: "obl-env-2", sector: "environment", title: "Native Tree Plantation & 2-Year Survival Tracking", description: "Plant native trees on barren plots and assign geo-tagged ownership so every sapling is watered for 24 months.", youthAndKidsRole: 'Every child adopts 1 sapling ("My Tree Buddy")', targetMetric: "24-Month Survival Log", status: "In Progress", contributorsCount: 26, lastUpdated: "2026-11-15" },
+      { id: "obl-env-3", sector: "environment", title: "100% Household Waste Segregation", description: "Ensure households separate wet (kitchen) waste from dry (recyclable) waste before collection.", youthAndKidsRole: "Bal Mitra kids guide home wet/dry bin sorting", targetMetric: "100% Ward Segregation", status: "Completed", contributorsCount: 28, lastUpdated: "2026-11-13" },
+      { id: "obl-env-4", sector: "environment", title: "Community Composting Pits", description: "Set up aerobic compost bins in parks or apartments to convert wet waste and dry leaves into organic manure.", youthAndKidsRole: "Eco-clubs manage park compost turning", targetMetric: "Active Compost Units", status: "Pending", contributorsCount: 8, lastUpdated: "2026-11-10" },
+      { id: "obl-env-5", sector: "environment", title: "Zero Waste Burning", description: "Enforce a strict neighborhood ban on burning dry leaves, plastic, or garbage.", youthAndKidsRole: "Patrol logs burning blackspots for GP action", targetMetric: "Zero Burning Incidents", status: "In Progress", contributorsCount: 12, lastUpdated: "2026-11-14" },
+    ];
+  }
+
   function createSeedCommunityState(): CommunityHubState {
     return {
+      schemaVersion: 3,
+      obligations: createSeedObligations(),
+      saplings: [
+        { id: "sap-1", guardianName: "Ananya Verma (Class 7)", species: "Native Neem (Azadirachta)", landmark: "ZPHS Narsapur Gate", villageName: "Narsapur", adoptedAt: "2026-11-12" },
+        { id: "sap-2", guardianName: "Rohan Sharma (Class 8)", species: "Pongamia / Kanuga", landmark: "Pedda Cheruvu East Bund", villageName: "Narsapur", adoptedAt: "2026-11-14" },
+      ],
       issues: [
         {
           id: "iss-edu-01",
           sector: "education",
-          title: "Broken Desk Benches & Missing Science Kit in Upper Primary Wing",
-          description: "Class 6–8 rooms need 14 bench repairs and solar study lamps before pre-board remedial camp.",
-          institutionName: "ZPHS Siddipet Rural",
+          categoryId: "edu-infra",
+          categoryLabel: "Broken School Building / Roof / Classroom Benches",
+          title: "Broken Desk Benches & Leaking Roof Slab in Upper Primary Wing",
+          description: "Class 6–8 classrooms require 14 dual-desk replacements and monsoon ceiling waterproofing before exams.",
+          institutionName: "ZPHS Narsapur",
           villageName: "Narsapur",
+          mandalName: "Narsapur",
           districtName: "Medak",
+          settlementType: "Rural Gram Panchayat",
+          affectedPeople: 145,
           reporterName: "Kavitha Reddy (SMC Parent)",
           severity: "High",
           status: "mobilizing",
+          recommendedPathway: "hybrid",
+          pathwayHeadline: "Hybrid: Escalate Roof Civil Works to MEO/MLA + NGO/Youth Remedial Support",
+          escalationStatus: "Submitted to Officer / MLA",
+          escalatedTo: "MEO Narsapur & Constituency MLA Office",
+          govtTicketRef: "TS-PRAJ-2026-44812",
+          escalatedAt: "2026-11-16",
           upvotes: 34,
           createdAt: "2026-11-15T09:30:00Z",
           gpsLabel: "17.7824°N, 78.2641°E · Within 1.4 km",
           lat: 17.7824,
           lon: 78.2641,
-          voiceTranscript: "పాఠశాలలో బెంచీలు విరిగిపోయాయి, పిల్లలకు వారాంతపు ట్యూషన్ అవసరం.",
-          adoptedNgo: "Pratham Deccan Chapter",
-          csrMatchStatus: "₹18,000 Hardware Micro-Grant Tagged",
+          voiceTranscript: "పాఠశాలలో బెంచీలు విరిగిపోయాయి, తరగతి గది పైకప్పు లీక్ అవుతోంది.",
+          adoptedNgo: "Pratham Telangana & Deccan Education Chapter",
+          csrMatchStatus: "NGO Teaching Kits Tagged · Waiting DEO Roof Estimate",
           needs: [
-            { id: "n1", item: "Dual Desk Benches (Repair Kits)", neededQty: 14, pledgedQty: 9, unit: "sets", pledgers: ["Youth Club Medak", "Ramesh Carpenter"] },
+            { id: "n1", item: "Dual Desk Bench Repairs", neededQty: 14, pledgedQty: 9, unit: "sets", pledgers: ["Youth Club Medak", "Ramesh Carpenter"] },
             { id: "n2", item: "Solar Reading Lamps", neededQty: 20, pledgedQty: 12, unit: "units", pledgers: ["GreenGrid CSR"] },
           ],
           peerVerified: false,
-        },
-        {
-          id: "iss-wat-01",
-          sector: "water",
-          title: "Feeder Channel Siltation & Main Distribution Valve Leak near Pedda Cheruvu",
-          description: "Overflow feeder kula has vegetation blockage reducing percolation recharge alongside a slow gate-valve leak.",
-          institutionName: "Pedda Cheruvu & RWS Overhead Tank",
-          villageName: "Chinna Shankarampet",
-          districtName: "Medak",
-          reporterName: "Mallesh Goud (Neeruganti)",
-          severity: "Critical",
-          status: "resolved",
-          upvotes: 58,
-          createdAt: "2026-11-10T07:15:00Z",
-          gpsLabel: "17.9120°N, 78.3185°E · Within 0.8 km",
-          lat: 17.912,
-          lon: 78.3185,
-          voiceTranscript: "చెరువు తూము వద్ద లీకేజీ అరికట్టి కాలువ పూడిక తీత పూర్తి చేయాలి.",
-          adoptedNgo: "Kakatiya Jala Samithi",
-          csrMatchStatus: "Gram Sabha Shramdaan + GP Tool Kit Verified",
-          needs: [
-            { id: "n3", item: "Desiltation Spades & Crowbars", neededQty: 12, pledgedQty: 12, unit: "tools", pledgers: ["Ward 3 Youth Squad"] },
-            { id: "n4", item: "HDPE Pipe Gasket Collars", neededQty: 4, pledgedQty: 4, unit: "kits", pledgers: ["Panchayat Water Comm."] },
+          timeline: [
+            { id: "tl-1", date: "15 Nov 2026", actor: "Kavitha Reddy", action: "Complaint Reported", note: "GPS-tagged evidence logged for 145 upper-primary students." },
+            { id: "tl-2", date: "16 Nov 2026", actor: "Portal Escalation", action: "Escalated to MEO & MLA", note: "Formal petition logged under Mana Ooru-Mana Badi (Ref: TS-PRAJ-2026-44812)." },
+            { id: "tl-3", date: "17 Nov 2026", actor: "Pratham Telangana", action: "NGO Co-Support Active", note: "Committed interim learning kits while PWD ceiling sanction processes." },
           ],
-          peerVerified: true,
-          verifiedBy: "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)",
         },
         {
           id: "iss-hea-01",
           sector: "health",
-          title: "Open Greywater Drain Stagnation & Mosquito Breeding Behind Anganwadi-2",
-          description: "Post-rain greywater pools behind kitchen shed require soak-pit trenching and lime/larvicide sanitization.",
+          categoryId: "hea-drain",
+          categoryLabel: "Open Sewage Stagnation / Mosquito Breeding / Sanitation Hazard",
+          title: "Open Greywater Drain Stagnation & Vector Hazard Behind Anganwadi-2",
+          description: "Post-rain greywater pools behind kitchen shed require immediate Panchayat drain desiltation and larvicide spraying.",
           institutionName: "Anganwadi Centre 02 · SC Colony",
           villageName: "Gajwel Ward",
+          mandalName: "Gajwel",
           districtName: "Siddipet",
+          settlementType: "Municipal Ward / Town",
+          affectedPeople: 220,
           reporterName: "Lakshmi Bai (ASHA Worker)",
           severity: "Critical",
           status: "open",
+          recommendedPathway: "govt_escalation",
+          pathwayHeadline: "Primary Solution: Urgent Escalation to Municipal Sanitary Officer & Ward Corporator",
+          escalationStatus: "Petition Generated",
           upvotes: 41,
           createdAt: "2026-11-16T08:00:00Z",
           gpsLabel: "17.8542°N, 78.6810°E · Within 0.6 km",
@@ -1860,42 +2472,106 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
             { id: "n6", item: "Bleaching Powder & Larvicide Sprayers", neededQty: 8, pledgedQty: 5, unit: "packs", pledgers: ["PHC Sub-Centre"] },
           ],
           peerVerified: false,
+          timeline: [
+            { id: "tl-h1", date: "16 Nov 2026", actor: "Lakshmi Bai (ASHA)", action: "Critical Health Complaint Filed", note: "Flagged mosquito breeding adjacent to Anganwadi kitchen." },
+          ],
+        },
+        {
+          id: "iss-wat-01",
+          sector: "water",
+          categoryId: "wat-cheruvu",
+          categoryLabel: "Village Tank (Cheruvu) Siltation, Feeder Channel Block or RWH Pit",
+          title: "Feeder Channel Siltation & Main Valve Leak at Pedda Cheruvu",
+          description: "Overflow feeder kula vegetation blockage cleared via Panchayat machinery + NSS youth bund stabilization.",
+          institutionName: "Pedda Cheruvu & RWS Overhead Tank",
+          villageName: "Chinna Shankarampet",
+          mandalName: "Chinna Shankarampet",
+          districtName: "Medak",
+          settlementType: "Rural Gram Panchayat",
+          affectedPeople: 640,
+          reporterName: "Mallesh Goud (Neeruganti)",
+          severity: "Critical",
+          status: "resolved",
+          recommendedPathway: "hybrid",
+          pathwayHeadline: "Hybrid Resolution: AE Mission Bhagiratha Valve Fix + NSS/NGO Tank Desiltation",
+          escalationStatus: "Resolved",
+          escalatedTo: "AE RWS Mission Bhagiratha & Gram Sarpanch",
+          govtTicketRef: "RWS-MB-2026-1908",
+          upvotes: 58,
+          createdAt: "2026-11-10T07:15:00Z",
+          gpsLabel: "17.9120°N, 78.3185°E · Within 0.8 km",
+          lat: 17.912,
+          lon: 78.3185,
+          voiceTranscript: "చెరువు తూము వద్ద లీకేజీ అరికట్టి కాలువ పూడిక తీత పూర్తి చేయాలి.",
+          adoptedNgo: "Kakatiya Jala Samithi & Bala Vikasa Water Network",
+          csrMatchStatus: "RWS Gasket Fixed + Gram Sabha Shramdaan Verified",
+          needs: [
+            { id: "n3", item: "Desiltation Spades & Crowbars", neededQty: 12, pledgedQty: 12, unit: "tools", pledgers: ["Ward 3 Youth Squad"] },
+            { id: "n4", item: "HDPE Pipe Gasket Collars", neededQty: 4, pledgedQty: 4, unit: "kits", pledgers: ["Panchayat Water Comm."] },
+          ],
+          peerVerified: true,
+          verifiedBy: "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)",
+          timeline: [
+            { id: "tl-w1", date: "10 Nov 2026", actor: "Mallesh Goud", action: "Reported Critical Leak", note: "Valve leak & feeder siltation documented." },
+            { id: "tl-w2", date: "11 Nov 2026", actor: "AE Mission Bhagiratha", action: "Valve Gasket Replaced", note: "Ticket RWS-MB-2026-1908 closed by RWS technician." },
+            { id: "tl-w3", date: "14 Nov 2026", actor: "Ward 3 Youth + Sarpanch", action: "Verified Closed", note: "Channel cleared & peer-verified by 52 residents." },
+          ],
         },
         {
           id: "iss-liv-01",
           sector: "livelihood",
-          title: "SHG Turmeric & Millet Value-Add Packaging Hub Needs Solar Dryer Shelves",
-          description: "28 women artisans seek direct ONDC/CSR buyer catalogue onboarding and 6 hygienic stainless drying trays.",
+          categoryId: "liv-shg",
+          categoryLabel: "SHG / Artisan Market Access, Micro-Grant or Skill Training Need",
+          title: "SHG Turmeric & Millet Processing Unit Needs ONDC Onboarding & Drying Trays",
+          description: "28 women artisans seek direct buyer linkages and hygienic solar drying trays.",
           institutionName: "Stree Nidhi SHG Bhavan",
           villageName: "Kamareddy Cluster",
+          mandalName: "Kamareddy",
           districtName: "Nizamabad",
-          reporterName: "Padma Vani (VAO / VO Leader)",
+          settlementType: "Rural Gram Panchayat",
+          affectedPeople: 112,
+          reporterName: "Padma Vani (VO Leader)",
           severity: "Moderate",
           status: "mobilizing",
+          recommendedPathway: "ngo_collab",
+          pathwayHeadline: "Primary Solution: Collaborate with Deccan Artisan NGO & SERP District Cell",
+          escalationStatus: "Not Escalated",
           upvotes: 29,
           createdAt: "2026-11-14T11:20:00Z",
           gpsLabel: "18.3204°N, 78.3412°E · Within 2.1 km",
           lat: 18.3204,
           lon: 78.3412,
-          adoptedNgo: "Deccan Artisan Collective",
+          adoptedNgo: "Deccan Artisan & SERP FPO Support Collective",
           csrMatchStatus: "Matched with Regional FPO Export Buyer",
           needs: [
             { id: "n7", item: "Food-Grade Drying Trays", neededQty: 10, pledgedQty: 6, unit: "trays", pledgers: ["FPO Cooperative"] },
-            { id: "n8", item: "1-Hour E-Commerce Onboarding Mentorship", neededQty: 4, pledgedQty: 2, unit: "sessions", pledgers: ["Hyd Tech Volunteer"] },
+            { id: "n8", item: "Youth Digital Cataloguing Mentorship", neededQty: 4, pledgedQty: 2, unit: "sessions", pledgers: ["College NSS Unit"] },
           ],
           peerVerified: false,
+          timeline: [
+            { id: "tl-l1", date: "14 Nov 2026", actor: "Padma Vani", action: "SHG Need Logged", note: "Requested buyer linkage & solar drying trays." },
+            { id: "tl-l2", date: "15 Nov 2026", actor: "Deccan Artisan Collective", action: "NGO Collaboration Accepted", note: "Buyer onboarding scheduled with college volunteers." },
+          ],
         },
         {
           id: "iss-env-01",
           sector: "environment",
-          title: "Katta Maisamma Tank-Bund Gap: 180 Native Neem & Pongamia Saplings Needed",
-          description: "Micro-heat island stretch along East Main Road requires avenue tree-guards and e-waste drop box.",
+          categoryId: "env-plantation",
+          categoryLabel: "Heat-Island Stretch / Native Sapling Plantation & Tree Care Drive",
+          title: "East Tank-Bund Heat Corridor Needs 180 Native Neem & Pongamia Saplings",
+          description: "Unshaded school approach road can be restored via Forest Nursery saplings + Bal Mitra school eco-club watering roster.",
           institutionName: "East Bund Green Belt",
           villageName: "Nalgonda Rural",
+          mandalName: "Nalgonda",
           districtName: "Nalgonda",
+          settlementType: "Rural Gram Panchayat",
+          affectedPeople: 380,
           reporterName: "Srinivas Rao (Eco Club Teacher)",
           severity: "Moderate",
           status: "open",
+          recommendedPathway: "youth_mobilization",
+          pathwayHeadline: "Primary Solution: Mobilize School Eco-Club & NSS Youth + Forest Nursery Saplings",
+          escalationStatus: "Not Escalated",
           upvotes: 24,
           createdAt: "2026-11-16T14:10:00Z",
           gpsLabel: "17.0575°N, 79.2684°E · Within 1.9 km",
@@ -1906,17 +2582,21 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
             { id: "n10", item: "Bamboo Tree Guards", neededQty: 90, pledgedQty: 45, unit: "guards", pledgers: ["Rotary Rural Wing"] },
           ],
           peerVerified: false,
+          timeline: [
+            { id: "tl-e1", date: "16 Nov 2026", actor: "Srinivas Rao", action: "Greening Initiative Logged", note: "Targeted 180 saplings along ZPHS approach road." },
+          ],
         },
       ],
       drives: [
         {
           id: "drv-01",
           sector: "water",
-          title: "Sunday Kakatiya Tank Bund Desiltation & RWH Pit Shramdaan",
+          linkedIssueId: "iss-wat-01",
+          title: "Sunday Kakatiya Tank Bund Stabilization & RWH Pit Drive (18+ NSS)",
           dateLabel: "Sun, 22 Nov 2026",
           timeSlot: "06:30 AM – 09:30 AM",
           landmark: "Pedda Cheruvu Weir Gate, Narsapur",
-          organizer: "Gram Sabha Water Committee + NSS",
+          organizer: "Gram Sabha Water Committee + NSS Youth",
           capacity: 45,
           rsvpCount: 31,
           joinedByUser: false,
@@ -1924,35 +2604,25 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
         {
           id: "drv-02",
           sector: "education",
-          title: "Weekend STEM Toy Lab & Digital Literacy Camp for ZPHS Class 7–9",
+          linkedIssueId: "iss-edu-01",
+          title: "Weekend Remedial Science & Literacy Camp for ZPHS Class 6–9",
           dateLabel: "Sat, 21 Nov 2026",
           timeSlot: "10:00 AM – 01:00 PM",
           landmark: "ZPHS Library Hall, Mandal HQ",
-          organizer: "Yuva Vidya Kendra",
+          organizer: "Yuva Vidya Kendra + Pratham Volunteers",
           capacity: 20,
           rsvpCount: 14,
           joinedByUser: false,
         },
         {
           id: "drv-03",
-          sector: "health",
-          title: "Ward-Wide Cleanliness, Anti-Vector Fogging & Nutrition Screening Drive",
-          dateLabel: "Sun, 29 Nov 2026",
-          timeSlot: "07:00 AM – 10:30 AM",
-          landmark: "Anganwadi-2 & Palle Dawakhana",
-          organizer: "ASHA & Red Cross Volunteers",
-          capacity: 35,
-          rsvpCount: 22,
-          joinedByUser: false,
-        },
-        {
-          id: "drv-04",
           sector: "environment",
-          title: "E-Waste Drop-Off & 200-Sapling Geo-Tagged Avenue Plantation",
+          linkedIssueId: "iss-env-01",
+          title: "Bal Mitra Eco-Club Tree Tagging & Avenue Plantation (Parent Consent)",
           dateLabel: "Sat, 28 Nov 2026",
-          timeSlot: "07:30 AM – 10:30 AM",
-          landmark: "Panchayat Bhavan East Bund",
-          organizer: "Bal Mitra Eco Squad",
+          timeSlot: "07:30 AM – 10:00 AM",
+          landmark: "East Bund Road, Near Panchayat Nursery",
+          organizer: "School Eco-Club Teacher + Green Youth Alliance",
           capacity: 50,
           rsvpCount: 27,
           joinedByUser: false,
@@ -1989,16 +2659,15 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
       ],
       wishlists: [
         { id: "wl-01", sector: "education", institution: "ZPHS Narsapur Library", item: "Telugu & English Illustrated Storybooks", needed: 80, fulfilled: 54, unit: "books" },
-        { id: "wl-02", sector: "education", institution: "MPPS Digital Corner", item: "Solar Study Lamps for Girl Students", needed: 30, fulfilled: 21, unit: "lamps" },
-        { id: "wl-03", sector: "health", institution: "Palle Dawakhana Booth", item: "Pediatric Pulse Oximeters & Nutrition Kits", needed: 25, fulfilled: 18, unit: "kits" },
-        { id: "wl-04", sector: "water", institution: "Ward 4 Drinking Stand", item: "Terracotta Cooling Vessels & Filters", needed: 12, fulfilled: 8, unit: "sets" },
+        { id: "wl-02", sector: "health", institution: "Palle Dawakhana Booth", item: "Pediatric Pulse Oximeters & Nutrition Kits", needed: 25, fulfilled: 18, unit: "kits" },
+        { id: "wl-03", sector: "water", institution: "Ward 4 Drinking Stand", item: "FTK Water Testing Strips & Filters", needed: 12, fulfilled: 8, unit: "sets" },
       ],
       certificates: [
         {
           id: "bm-01",
           studentName: "Ananya Verma (Class 7)",
           schoolOrWard: "ZPHS Narsapur · Ward 2",
-          activity: "Tree-Tagging & Cleanliness Rally",
+          activity: "Native Sapling Tree-Tagging & Reading Circle",
           sector: "environment",
           parentConsent: true,
           issuedAt: "2026-11-12",
@@ -2006,17 +2675,258 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
         },
       ],
       champions: [
-        { id: "ch-01", name: "Kavitha Reddy", role: "SMC Parent Lead", sector: "education", hours: 18, badge: "Vidya Mitra Gold", verifiedActions: 6 },
+        { id: "ch-01", name: "Kavitha Reddy", role: "SMC Parent Lead", sector: "education", hours: 18, badge: "Vidya Mitra", verifiedActions: 6 },
         { id: "ch-02", name: "Mallesh Goud", role: "Neeruganti Steward", sector: "water", hours: 32, badge: "Jala Rakshak", verifiedActions: 11 },
-        { id: "ch-03", name: "Lakshmi Bai", role: "ASHA Community Lead", sector: "health", hours: 24, badge: "Swachh Warrior", verifiedActions: 9 },
+        { id: "ch-03", name: "Lakshmi Bai", role: "ASHA Community Lead", sector: "health", hours: 24, badge: "Swachh Lead", verifiedActions: 9 },
         { id: "ch-04", name: "Padma Vani", role: "SERP SHG Mentor", sector: "livelihood", hours: 15, badge: "Shreni Catalyst", verifiedActions: 5 },
       ],
       ngoDirectory: [
-        { name: "Pratham Deccan Chapter", focus: "Education · Foundational Literacy", wardReach: "18 Mandals" },
-        { name: "Kakatiya Jala Samithi", focus: "Water · Chain-Tank Revival", wardReach: "32 Villages" },
-        { name: "Deccan Artisan Collective", focus: "Livelihood · SHG & FPO Links", wardReach: "14 Clusters" },
-        { name: "Telangana Green Youth Network", focus: "Environment · Native Groves & E-Waste", wardReach: "27 Wards" },
+        { name: "Pratham Telangana & Deccan Education Chapter", focus: "Education · Foundational Literacy & Classroom Kits", wardReach: "24 Districts", sectors: ["education"] },
+        { name: "Akshaya Patra / Naandi Rural School Support", focus: "Education & Health · School Water & Toilets", wardReach: "18 Mandals", sectors: ["education", "health"] },
+        { name: "Kakatiya Jala Samithi & Bala Vikasa Water Network", focus: "Water · Chain-Tank Revival & RO Plants", wardReach: "32 Mandals", sectors: ["water", "environment"] },
+        { name: "Doctors For You / Rural Swachh Health Collective", focus: "Health · PHC Medical Camps & Vector Control", wardReach: "15 Clusters", sectors: ["health"] },
+        { name: "Deccan Artisan & SERP FPO Support Collective", focus: "Livelihood · SHG & FPO Market Links", wardReach: "14 Clusters", sectors: ["livelihood"] },
+        { name: "Telangana Green Youth & Haritha Eco Alliance", focus: "Environment · Native Groves & Eco-Clubs", wardReach: "27 Wards", sectors: ["environment", "water"] },
       ],
+      budgetProposals: [
+        {
+          id: "bp-01",
+          sector: "water",
+          title: "Covered Storm Drain & Bio-Filter Recharge Pit at Anganwadi Lane",
+          rationale: "Stops post-rain greywater stagnation behind Anganwadi-2 and recharges community borewell.",
+          location: "Anganwadi-2 & SC Colony Crossroad",
+          estimatedCostLakhs: 6.5,
+          votes: 64,
+          votedByUser: false,
+          proposerName: "Lakshmi Bai & Ward 3 Residents",
+          status: "Shortlisted in Ward Budget",
+          assignedLeaderRole: "Ward Corporator / Gram Sarpanch",
+          createdAt: "2026-11-12",
+        },
+        {
+          id: "bp-02",
+          sector: "education",
+          title: "School Drinking Water RO Plant & Girls Toilet Waterproofing",
+          rationale: "Addresses 145 upper-primary students lacking safe potable water & intact toilet roof.",
+          location: "ZPHS Upper Primary Wing",
+          estimatedCostLakhs: 4.8,
+          votes: 52,
+          votedByUser: false,
+          proposerName: "Kavitha Reddy (SMC)",
+          status: "Shortlisted in Ward Budget",
+          assignedLeaderRole: "Constituency MLA (CDF) & MEO",
+          createdAt: "2026-11-14",
+        },
+        {
+          id: "bp-03",
+          sector: "health",
+          title: "LED Solar Streetlights on PHC & Evening Bus-Stop Approach Road",
+          rationale: "Improves safe evening clinic access for women & elderly residents.",
+          location: "Main Bazaar to PHC Approach",
+          estimatedCostLakhs: 3.2,
+          votes: 39,
+          votedByUser: false,
+          proposerName: "Ramesh Goud & Youth Wing",
+          status: "Proposed",
+          assignedLeaderRole: "Ward Corporator / Gram Sarpanch",
+          createdAt: "2026-11-15",
+        },
+        {
+          id: "bp-04",
+          sector: "livelihood",
+          title: "Women SHG Market Shed & Solar Turmeric/Millet Drying Platform",
+          rationale: "Gives 28 SHG producers weatherproof grading & direct weekly haat counter.",
+          location: "Gram Panchayat / Rythu Vedika Yard",
+          estimatedCostLakhs: 5.4,
+          votes: 31,
+          votedByUser: false,
+          proposerName: "Padma Vani (VO Leader)",
+          status: "Proposed",
+          assignedLeaderRole: "MPDO / SERP Mandal Project Officer",
+          createdAt: "2026-11-16",
+        },
+        {
+          id: "bp-05",
+          sector: "environment",
+          title: "East Tank-Bund Walking Track, Tree Guards & Wet-Waste Compost Drums",
+          rationale: "Prevents plastic dumping and protects 180 newly planted native shade saplings.",
+          location: "Pedda Cheruvu East Bund",
+          estimatedCostLakhs: 4.0,
+          votes: 28,
+          votedByUser: false,
+          proposerName: "Srinivas Rao (Eco Club)",
+          status: "Sanctioned",
+          assignedLeaderRole: "Gram Sarpanch & Haritha Officer",
+          createdAt: "2026-11-10",
+        },
+      ],
+      wardMeetings: [
+        {
+          id: "wm-01",
+          title: "Quarterly Ward Committee / Gram Sabha — Participatory Budget Sign-off",
+          sabhaType: "Area Sabha",
+          dateLabel: "Sun, 29 Nov 2026",
+          timeSlot: "10:00 AM – 12:30 PM",
+          venue: "Gram Panchayat Bhavan / Municipal Ward Hall",
+          chairRole: "Gram Sarpanch / Ward Corporator & MPDO",
+          agendaItems: [
+            "Finalize top 3 My Village / Ward My Budget priorities (Total Envelope: ₹25 Lakhs)",
+            "Review overdue drainage & school roof Prajavani tickets (>5 days SLA)",
+            "Approve Pre-Monsoon Cheruvu desiltation & RWH recharge pit roster",
+          ],
+          attendeeCount: 47,
+          rsvpedByUser: false,
+          status: "Upcoming",
+        },
+        {
+          id: "wm-02",
+          title: "Area Sabha No. 2 — Safe Drinking Water & Anganwadi Sanitation Audit",
+          sabhaType: "Ward Committee",
+          dateLabel: "Wed, 11 Nov 2026",
+          timeSlot: "04:00 PM – 05:30 PM",
+          venue: "ZPHS Verandah / Anganwadi-2 Courtyard",
+          chairRole: "Ward Member & AE Mission Bhagiratha",
+          agendaItems: [
+            "Audit tail-end tap pressure across SC/BC Colony lanes",
+            "Inspect Pedda Cheruvu valve collar replacement",
+          ],
+          attendeeCount: 38,
+          rsvpedByUser: true,
+          status: "Minutes Filed",
+          resolutionSummary:
+            "Resolution #14 passed: AE RWS replaced Pedda Cheruvu valve (Ticket RWS-MB-2026-1908); Ward 3 peer audit confirmed resolution.",
+        },
+      ],
+      wardLeaders: [
+        {
+          id: "ldr-sarpanch",
+          roleTitle: "Gram Sarpanch / Ward Corporator",
+          tier: "Elected Ward / GP",
+          officeName: "Local Body & Standing Ward Committee",
+          statutoryMandate:
+            "Chairs Area/Gram Sabha, prioritizes 15th Finance Commission & local municipal ward budget works, signs off sanitation & streetlight tenders.",
+          helplineOrPortal: "Ward Office · Dial 1902",
+          slaDays: 4,
+          resolvedCount: 19,
+          budgetUtilizedPct: 74,
+          dispatchedRequests: [
+            {
+              id: "dr-1",
+              subject: "Shortlisted Covered Storm Drain Proposal (₹6.5L) for Next Sabha Agenda",
+              sender: "Ward 3 Citizen Coalition",
+              date: "2026-11-15",
+            },
+          ],
+        },
+        {
+          id: "ldr-officer",
+          roleTitle: "MPDO / Municipal Engineer & Sectoral Officers",
+          tier: "Mandal / Municipal Officer",
+          officeName: "Mandal Praja Parishad & RWS / MEO / Sanitary Wing",
+          statutoryMandate:
+            "Technical estimates, Mission Bhagiratha pipeline maintenance, PHC medicine indent, Mana Ooru-Mana Badi school repairs & SBM-G sanitation.",
+          helplineOrPortal: "prajavani.telangana.gov.in · 1800-425-7470",
+          slaDays: 7,
+          resolvedCount: 24,
+          budgetUtilizedPct: 81,
+          dispatchedRequests: [
+            {
+              id: "dr-2",
+              subject: "ZPHS Classroom Roof Waterproofing & Desk Estimate Request",
+              sender: "Kavitha Reddy (SMC Parent)",
+              date: "2026-11-16",
+              linkedRef: "TS-PRAJ-2026-44812",
+            },
+          ],
+        },
+        {
+          id: "ldr-mla",
+          roleTitle: "Constituency MLA & District Collector (Prajavani)",
+          tier: "Constituency MLA / Collectorate",
+          officeName: "Assembly Constituency CDF & Collectorate Prajavani Cell",
+          statutoryMandate:
+            "Sanctions MLA Constituency Development Funds (>₹5L capital works), holds Collectorate Prajavani reviews every Monday, and oversees District departments.",
+          helplineOrPortal: "pgportal.gov.in · Collector Prajavani Desk",
+          slaDays: 14,
+          resolvedCount: 11,
+          budgetUtilizedPct: 68,
+          dispatchedRequests: [],
+        },
+      ],
+      learningProgress: [
+        { moduleId: "learn-budget-01", completionsCount: 18, completedByUser: false },
+        { moduleId: "learn-health-02", completionsCount: 24, completedByUser: true, latestReflection: "Checked 4 households near Anganwadi-2 for standing rainwater in tyres.", lastCompletedAt: "2026-11-14" },
+        { moduleId: "learn-water-03", completionsCount: 15, completedByUser: false },
+        { moduleId: "learn-sabha-04", completionsCount: 9, completedByUser: false },
+      ],
+    };
+  }
+
+  function normalizeCommunityState(raw: any): CommunityHubState {
+    const seed = createSeedCommunityState();
+    if (!raw || !Array.isArray(raw.issues)) return seed;
+
+    const normalizedIssues: CommunityActionRoom[] = raw.issues.map((iss: any) => {
+      const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(iss.sector)
+        ? iss.sector
+        : "water";
+      const routing = computeServerRouting({
+        sector,
+        categoryId: iss.categoryId,
+        title: iss.title || "",
+        description: iss.description || "",
+        severity: iss.severity || "High",
+        settlementType: iss.settlementType || "Rural Gram Panchayat",
+        affectedPeople: Number(iss.affectedPeople) || 80,
+        villageName: iss.villageName || "Telangana Ward",
+        mandalName: iss.mandalName || iss.districtName || "Mandal HQ",
+        districtName: iss.districtName || "Medak",
+        institutionName: iss.institutionName || "Public Asset",
+        gpsLabel: iss.gpsLabel || "17.78°N, 78.26°E",
+        reporterName: iss.reporterName || "Citizen",
+      });
+      return {
+        ...iss,
+        sector,
+        categoryId: iss.categoryId || `${sector}-general`,
+        categoryLabel: iss.categoryLabel || routing.categoryLabel,
+        mandalName: iss.mandalName || iss.districtName || "Mandal HQ",
+        settlementType: iss.settlementType || "Rural Gram Panchayat",
+        affectedPeople: Number(iss.affectedPeople) || 85,
+        recommendedPathway: iss.recommendedPathway || routing.recommendedPathway,
+        pathwayHeadline: iss.pathwayHeadline || routing.pathwayHeadline,
+        escalationStatus:
+          iss.escalationStatus ||
+          (iss.status === "resolved" ? "Resolved" : "Not Escalated"),
+        timeline: Array.isArray(iss.timeline) && iss.timeline.length > 0
+          ? iss.timeline
+          : [
+              {
+                id: `tl-init-${iss.id}`,
+                date: String(iss.createdAt || "").slice(0, 10) || "2026-11-16",
+                actor: iss.reporterName || "Citizen",
+                action: "Complaint Logged",
+                note: iss.description || "Initial complaint captured.",
+              },
+            ],
+      };
+    });
+
+    return {
+      schemaVersion: 4,
+      obligations: Array.isArray(raw.obligations) && raw.obligations.length >= 20 ? raw.obligations : seed.obligations,
+      saplings: Array.isArray(raw.saplings) ? raw.saplings : seed.saplings,
+      issues: normalizedIssues,
+      drives: Array.isArray(raw.drives) ? raw.drives : seed.drives,
+      volunteerSlots: Array.isArray(raw.volunteerSlots) ? raw.volunteerSlots : seed.volunteerSlots,
+      wishlists: Array.isArray(raw.wishlists) ? raw.wishlists : seed.wishlists,
+      certificates: Array.isArray(raw.certificates) ? raw.certificates : seed.certificates,
+      champions: Array.isArray(raw.champions) ? raw.champions : seed.champions,
+      budgetProposals: Array.isArray(raw.budgetProposals) && raw.budgetProposals.length > 0 ? raw.budgetProposals : seed.budgetProposals,
+      wardMeetings: Array.isArray(raw.wardMeetings) && raw.wardMeetings.length > 0 ? raw.wardMeetings : seed.wardMeetings,
+      wardLeaders: Array.isArray(raw.wardLeaders) && raw.wardLeaders.length > 0 ? raw.wardLeaders : seed.wardLeaders,
+      learningProgress: Array.isArray(raw.learningProgress) && raw.learningProgress.length > 0 ? raw.learningProgress : seed.learningProgress,
+      ngoDirectory: seed.ngoDirectory,
     };
   }
 
@@ -2026,11 +2936,9 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     if (communityCache) return communityCache;
     try {
       if (fs.existsSync(COMMUNITY_STATE_FILE)) {
-        const parsed = JSON.parse(fs.readFileSync(COMMUNITY_STATE_FILE, "utf8")) as CommunityHubState;
-        if (parsed && Array.isArray(parsed.issues)) {
-          communityCache = parsed;
-          return communityCache;
-        }
+        const parsed = JSON.parse(fs.readFileSync(COMMUNITY_STATE_FILE, "utf8"));
+        communityCache = normalizeCommunityState(parsed);
+        return communityCache;
       }
     } catch (err) {
       console.warn("Community state load fallback to seed:", err);
@@ -2059,23 +2967,79 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
       ? b.sector
       : "water";
+    const severity: "Critical" | "High" | "Moderate" = ["Critical", "High", "Moderate"].includes(b.severity)
+      ? b.severity
+      : "High";
+    const settlementType: "Rural Gram Panchayat" | "Municipal Ward / Town" =
+      b.settlementType === "Municipal Ward / Town" ? "Municipal Ward / Town" : "Rural Gram Panchayat";
+    const affectedPeople = Math.max(1, Number(b.affectedPeople) || 60);
+    const villageName = String(b.villageName || "Telangana Ward").slice(0, 80);
+    const mandalName = String(b.mandalName || "Mandal HQ").slice(0, 80);
+    const districtName = String(b.districtName || "Telangana").slice(0, 80);
+    const institutionName = String(b.institutionName || "Village Public Asset").slice(0, 120);
+    const reporterName = String(b.reporterName || "Citizen Reporter").slice(0, 80);
+    const title = String(b.title || "Citizen Grievance Report").slice(0, 160);
+    const description = String(b.description || "Verified civic complaint submitted via Jan-Drishti portal.").slice(0, 800);
+    const gpsLabel = String(b.gpsLabel || "17.78°N, 78.26°E · Hyperlocal Pin");
+
+    const routing = computeServerRouting({
+      sector,
+      categoryId: b.categoryId,
+      title,
+      description,
+      severity,
+      settlementType,
+      affectedPeople,
+      villageName,
+      mandalName,
+      districtName,
+      institutionName,
+      gpsLabel,
+      reporterName,
+    });
+
+    const todayFmt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const initialAction = String(b.initialAction || "submit_only");
+
     const newIssue: CommunityActionRoom = {
       id: `iss-${Date.now()}`,
       sector,
-      title: String(b.title || "Citizen Field Gap Report").slice(0, 140),
-      description: String(b.description || "Verified multi-modal citizen report from ward capture.").slice(0, 500),
-      institutionName: String(b.institutionName || "Village Public Asset").slice(0, 120),
-      villageName: String(b.villageName || "Telangana Ward").slice(0, 80),
-      districtName: String(b.districtName || "Telangana").slice(0, 80),
-      reporterName: String(b.reporterName || "Citizen Volunteer").slice(0, 80),
-      severity: ["Critical", "High", "Moderate"].includes(b.severity) ? b.severity : "High",
-      status: "open",
+      categoryId: String(b.categoryId || `${sector}-general`),
+      categoryLabel: String(b.categoryLabel || routing.categoryLabel),
+      title,
+      description,
+      institutionName,
+      villageName,
+      mandalName,
+      districtName,
+      settlementType,
+      affectedPeople,
+      reporterName,
+      severity,
+      status: initialAction === "submit_only" ? "open" : "mobilizing",
+      recommendedPathway: ["govt_escalation", "ngo_collab", "youth_mobilization", "hybrid"].includes(b.recommendedPathway)
+        ? b.recommendedPathway
+        : routing.recommendedPathway,
+      pathwayHeadline: String(b.pathwayHeadline || routing.pathwayHeadline),
+      escalationStatus:
+        initialAction === "escalate_govt"
+          ? "Submitted to Officer / MLA"
+          : b.petitionText
+          ? "Petition Generated"
+          : "Not Escalated",
+      escalatedTo: initialAction === "escalate_govt" ? String(b.escalatedTo || routing.defaultOfficer) : undefined,
+      govtTicketRef: b.govtTicketRef ? String(b.govtTicketRef).slice(0, 60) : undefined,
+      escalatedAt: initialAction === "escalate_govt" ? todayFmt : undefined,
+      adoptedNgo: initialAction === "collab_ngo" && b.ngoName ? String(b.ngoName) : undefined,
+      csrMatchStatus: initialAction === "collab_ngo" ? "NGO Collaboration Dispatched" : undefined,
+      youthDriveTitle: initialAction === "mobilize_youth" ? String(b.youthDriveTitle || `Youth Action Drive: ${title.slice(0, 50)}`) : undefined,
+      petitionText: b.petitionText ? String(b.petitionText).slice(0, 4000) : undefined,
       upvotes: 1,
       createdAt: new Date().toISOString(),
-      gpsLabel: String(b.gpsLabel || "17.78°N, 78.26°E · Hyperlocal Pin"),
+      gpsLabel,
       lat: Number(b.lat) || 17.78,
       lon: Number(b.lon) || 78.26,
-      voiceTranscript: b.voiceTranscript ? String(b.voiceTranscript).slice(0, 300) : undefined,
+      voiceTranscript: b.voiceTranscript ? String(b.voiceTranscript).slice(0, 350) : undefined,
       audioDataUrl: typeof b.audioDataUrl === "string" ? b.audioDataUrl : undefined,
       videoClipLabel: b.videoClipLabel ? String(b.videoClipLabel).slice(0, 100) : undefined,
       beforePhotoUrl: typeof b.beforePhotoUrl === "string" ? b.beforePhotoUrl : undefined,
@@ -2085,14 +3049,62 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
         : [
             {
               id: `n-${Date.now()}`,
-              item: sector === "education" ? "Classroom Supplies & Mentor Hours" : sector === "water" ? "Pipe Collar & Shramdaan Tools" : "Community Mobilization Kit",
+              item: sector === "education" ? "Classroom Kits / Mentor Hours" : sector === "water" ? "Valve / Pipe Repair Materials" : "Field Resolution Support",
               neededQty: 6,
               pledgedQty: 0,
               unit: "units",
               pledgers: [],
             },
           ],
+      timeline: [
+        {
+          id: `tl-${Date.now()}`,
+          date: todayFmt,
+          actor: reporterName,
+          action: "Complaint Registered",
+          note: `Logged in ${villageName}, ${mandalName} (${affectedPeople} residents affected). Recommended: ${routing.pathwayHeadline}.`,
+        },
+        ...(initialAction === "escalate_govt"
+          ? [
+              {
+                id: `tl-esc-${Date.now()}`,
+                date: todayFmt,
+                actor: "Official Escalation",
+                action: "Formal Petition Generated & Escalated",
+                note: `Addressed to ${String(b.escalatedTo || routing.defaultOfficer)}${b.govtTicketRef ? ` (Ticket: ${b.govtTicketRef})` : ""}.`,
+              },
+            ]
+          : []),
+        ...(initialAction === "collab_ngo" && b.ngoName
+          ? [
+              {
+                id: `tl-ngo-${Date.now()}`,
+                date: todayFmt,
+                actor: String(b.ngoName),
+                action: "NGO Collaboration Initiated",
+                note: "Collaboration brief sent with GPS site proof & material needs.",
+              },
+            ]
+          : []),
+      ],
     };
+
+    if (initialAction === "mobilize_youth") {
+      state.drives.unshift({
+        id: `drv-${Date.now()}`,
+        sector,
+        linkedIssueId: newIssue.id,
+        title: newIssue.youthDriveTitle || `Youth Action Drive: ${title.slice(0, 55)}`,
+        dateLabel: "This Coming Weekend",
+        timeSlot: "07:30 AM – 10:00 AM",
+        landmark: `${institutionName}, ${villageName}`,
+        organizer: `${reporterName} + Youth/Bal Mitra Wing`,
+        capacity: 30,
+        rsvpCount: 1,
+        joinedByUser: true,
+      });
+    }
+
     state.issues.unshift(newIssue);
     saveCommunityState(state);
     res.status(201).json({ issue: newIssue, state });
@@ -2107,16 +3119,83 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     res.json({ issue, state });
   });
 
+  app.post("/api/community/issues/:id/escalate", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    const b = req.body ?? {};
+    const escalatedTo = String(b.escalatedTo || "Mandal Officer & Constituency MLA / Corporator").slice(0, 160);
+    const ticketRef = String(b.govtTicketRef || "").trim().slice(0, 60);
+    const todayFmt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    issue.escalatedTo = escalatedTo;
+    if (ticketRef) issue.govtTicketRef = ticketRef;
+    issue.escalatedAt = todayFmt;
+    issue.escalationStatus = ticketRef ? "Submitted to Officer / MLA" : "Petition Generated";
+    if (issue.status === "open") issue.status = "mobilizing";
+    if (b.petitionText) issue.petitionText = String(b.petitionText).slice(0, 4000);
+    issue.timeline.push({
+      id: `tl-${Date.now()}`,
+      date: todayFmt,
+      actor: String(b.actorName || "Citizen Reporter"),
+      action: ticketRef ? "Govt Grievance Ticket Logged" : "Escalated to Authority",
+      note: `Routed to ${escalatedTo}${ticketRef ? ` · Official Ref: ${ticketRef}` : ""}`,
+    });
+    saveCommunityState(state);
+    res.json({ issue, state });
+  });
+
   app.post("/api/community/issues/:id/adopt", (req, res) => {
     const state = getCommunityState();
     const issue = state.issues.find((i) => i.id === req.params.id);
     if (!issue) return res.status(404).json({ error: "Issue not found" });
-    const ngo = String(req.body?.ngoName || "Pratham Deccan Chapter");
+    const ngo = String(req.body?.ngoName || "Pratham Telangana & Deccan Education Chapter");
+    const todayFmt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     issue.adoptedNgo = ngo;
-    issue.csrMatchStatus = "CSR / Institutional Adoption Active";
+    issue.csrMatchStatus = String(req.body?.collabNote || "NGO Collaboration Request Dispatched");
     if (issue.status === "open") issue.status = "mobilizing";
+    issue.timeline.push({
+      id: `tl-${Date.now()}`,
+      date: todayFmt,
+      actor: ngo,
+      action: "NGO Collaboration Linked",
+      note: issue.csrMatchStatus,
+    });
     saveCommunityState(state);
     res.json({ issue, state });
+  });
+
+  app.post("/api/community/issues/:id/mobilize-youth", (req, res) => {
+    const state = getCommunityState();
+    const issue = state.issues.find((i) => i.id === req.params.id);
+    if (!issue) return res.status(404).json({ error: "Issue not found" });
+    const b = req.body ?? {};
+    const driveTitle = String(b.driveTitle || `Youth & Community Action: ${issue.title.slice(0, 55)}`).slice(0, 120);
+    const todayFmt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    issue.youthDriveTitle = driveTitle;
+    if (issue.status === "open") issue.status = "mobilizing";
+    const drv: CommunityDrive = {
+      id: `drv-${Date.now()}`,
+      sector: issue.sector,
+      linkedIssueId: issue.id,
+      title: driveTitle,
+      dateLabel: String(b.dateLabel || "This Weekend"),
+      timeSlot: String(b.timeSlot || "07:30 AM – 10:00 AM"),
+      landmark: `${issue.institutionName}, ${issue.villageName}`,
+      organizer: String(b.organizer || "NSS Youth & Bal Mitra Squad"),
+      capacity: Math.max(10, Number(b.capacity) || 35),
+      rsvpCount: 1,
+      joinedByUser: true,
+    };
+    state.drives.unshift(drv);
+    issue.timeline.push({
+      id: `tl-${Date.now()}`,
+      date: todayFmt,
+      actor: drv.organizer,
+      action: "Youth & Community Drive Scheduled",
+      note: `${driveTitle} (${drv.dateLabel} at ${drv.landmark})`,
+    });
+    saveCommunityState(state);
+    res.json({ issue, drive: drv, state });
   });
 
   app.post("/api/community/issues/:id/pledge", (req, res) => {
@@ -2140,12 +3219,21 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     const issue = state.issues.find((i) => i.id === req.params.id);
     if (!issue) return res.status(404).json({ error: "Issue not found" });
     const verifier = String(req.body?.verifierName || "Neighborhood Peer Audit");
+    const todayFmt = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     issue.status = "resolved";
+    issue.escalationStatus = "Resolved";
     issue.peerVerified = Boolean(req.body?.peerVerified ?? true);
     issue.verifiedBy = `${verifier} · Verified`;
-    if (typeof req.body?.afterPhotoUrl === "string") {
+    if (typeof req.body?.afterPhotoUrl === "string" && req.body.afterPhotoUrl.length > 0) {
       issue.afterPhotoUrl = req.body.afterPhotoUrl;
     }
+    issue.timeline.push({
+      id: `tl-${Date.now()}`,
+      date: todayFmt,
+      actor: verifier,
+      action: "Verified Resolved & Closed",
+      note: String(req.body?.resolutionNote || "Resident peer verification completed with field proof."),
+    });
     const champ = state.champions.find((c) => c.name === verifier);
     if (champ) {
       champ.hours += 4;
@@ -2157,7 +3245,7 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
         role: "Verified Citizen Steward",
         sector: issue.sector,
         hours: 4,
-        badge: "Shramdaan Verifier",
+        badge: "Civic Auditor",
         verifiedActions: 1,
       });
     }
@@ -2174,7 +3262,8 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     const drv: CommunityDrive = {
       id: `drv-${Date.now()}`,
       sector,
-      title: String(b.title || "Weekend Shramdaan Drive").slice(0, 120),
+      linkedIssueId: b.linkedIssueId ? String(b.linkedIssueId) : undefined,
+      title: String(b.title || "Weekend Community Action Drive").slice(0, 120),
       dateLabel: String(b.dateLabel || "Sun, 06 Dec 2026"),
       timeSlot: String(b.timeSlot || "07:00 AM – 09:30 AM"),
       landmark: String(b.landmark || "Gram Panchayat Kendra"),
@@ -2213,6 +3302,87 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     res.json({ slot, state });
   });
 
+  app.post("/api/community/obligations/:id/contribute", (req, res) => {
+    const state = getCommunityState();
+    const obl = state.obligations.find((o) => o.id === req.params.id);
+    if (!obl) return res.status(404).json({ error: "Obligation not found" });
+    obl.contributorsCount += 1;
+    if (obl.status === "Pending") obl.status = "In Progress";
+    obl.lastUpdated = new Date().toISOString().slice(0, 10);
+    const name = String(req.body?.contributorName || "Resident Volunteer").slice(0, 80);
+    const champ = state.champions.find((c) => c.name === name);
+    if (champ) {
+      champ.hours += 2;
+      champ.verifiedActions += 1;
+    } else {
+      state.champions.unshift({
+        id: `ch-obl-${Date.now()}`,
+        name,
+        role: "Community Contributor",
+        sector: obl.sector,
+        hours: 2,
+        badge: obl.sector === "water" ? "Water Guardian" : obl.sector === "environment" ? "Plastic Warrior" : "Viksit Sevak",
+        verifiedActions: 1,
+      });
+    }
+    saveCommunityState(state);
+    res.json({ obligation: obl, state });
+  });
+
+  app.post("/api/community/obligations/:id/status", (req, res) => {
+    const state = getCommunityState();
+    const obl = state.obligations.find((o) => o.id === req.params.id);
+    if (!obl) return res.status(404).json({ error: "Obligation not found" });
+    const nextStatus = req.body?.status;
+    if (["Pending", "In Progress", "Completed"].includes(nextStatus)) {
+      obl.status = nextStatus;
+      obl.lastUpdated = new Date().toISOString().slice(0, 10);
+      saveCommunityState(state);
+    }
+    res.json({ obligation: obl, state });
+  });
+
+  app.post("/api/community/saplings/adopt", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sapling: SaplingAdoption = {
+      id: `sap-${Date.now()}`,
+      guardianName: String(b.guardianName || "Resident Eco Guardian").slice(0, 80),
+      species: String(b.species || "Native Neem (Azadirachta)").slice(0, 80),
+      landmark: String(b.landmark || "School / Tank Bund").slice(0, 100),
+      villageName: String(b.villageName || "Telangana Ward").slice(0, 80),
+      adoptedAt: new Date().toISOString().slice(0, 10),
+    };
+    state.saplings.unshift(sapling);
+    const envObl = state.obligations.find((o) => o.id === "obl-env-2");
+    if (envObl) {
+      envObl.contributorsCount += 1;
+      if (envObl.status === "Pending") envObl.status = "In Progress";
+    }
+    saveCommunityState(state);
+    res.status(201).json({ sapling, state });
+  });
+
+  app.post("/api/community/wishlist", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
+      ? b.sector
+      : "environment";
+    const item: InstitutionWishlist = {
+      id: `wl-${Date.now()}`,
+      sector,
+      institution: String(b.institution || "Locality Ward Center").slice(0, 80),
+      item: String(b.item || "Clean-Up Gloves & Native Saplings").slice(0, 100),
+      needed: Math.max(1, Number(b.needed) || 20),
+      fulfilled: 0,
+      unit: String(b.unit || "units").slice(0, 24),
+    };
+    state.wishlists.unshift(item);
+    saveCommunityState(state);
+    res.status(201).json({ item, state });
+  });
+
   app.post("/api/community/wishlist/:id/pledge", (req, res) => {
     const state = getCommunityState();
     const item = state.wishlists.find((w) => w.id === req.params.id);
@@ -2228,28 +3398,165 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
       ? b.sector
       : "environment";
+    const badgeName = String(b.badgeName || "Junior Civic Champion").slice(0, 60);
     const cert: BalMitraCert = {
       id: `bm-${Date.now()}`,
       studentName: String(b.studentName || "Young Civic Champion").slice(0, 80),
       schoolOrWard: String(b.schoolOrWard || "Village School").slice(0, 80),
-      activity: String(b.activity || "Wall Painting & Tree-Tagging").slice(0, 100),
+      activity: String(b.activity || "My Tree Buddy & Reading Circle").slice(0, 100),
       sector,
       parentConsent: Boolean(b.parentConsent),
       issuedAt: new Date().toISOString().slice(0, 10),
-      certCode: `JD-JCC-${new Date().getFullYear()}-${String(1000 + state.certificates.length + 1)}`,
+      certCode: `JD-VB2047-${new Date().getFullYear()}-${String(1000 + state.certificates.length + 1)}`,
     };
     state.certificates.unshift(cert);
     state.champions.unshift({
       id: `ch-bm-${Date.now()}`,
       name: cert.studentName,
-      role: "Bal Mitra / Yuva Squad",
+      role: "Bal Mitra / Youth Squad",
       sector,
       hours: 2,
-      badge: "Junior Civic Champion",
+      badge: badgeName,
       verifiedActions: 1,
     });
     saveCommunityState(state);
     res.status(201).json({ certificate: cert, state });
+  });
+
+  // 1. Citizen Engagement: Participatory Budgeting ("My Village / Ward, My Budget")
+  app.post("/api/community/budget-proposals", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const sector: CommunitySectorKey = ["education", "health", "water", "livelihood", "environment"].includes(b.sector)
+      ? b.sector
+      : "water";
+    const proposal: BudgetProposal = {
+      id: `bp-${Date.now()}`,
+      sector,
+      title: String(b.title || "Neighborhood Civic Priority Proposal").slice(0, 140),
+      rationale: String(b.rationale || "Proposed via Participatory Budgeting for next Sabha agenda.").slice(0, 400),
+      location: String(b.location || "Main Street / Ward Center").slice(0, 120),
+      estimatedCostLakhs: Math.max(0.5, Math.min(50, Number(b.estimatedCostLakhs) || 3.5)),
+      votes: 1,
+      votedByUser: true,
+      proposerName: String(b.proposerName || "Resident Proposer").slice(0, 80),
+      status: "Proposed",
+      assignedLeaderRole: String(b.assignedLeaderRole || "Ward Corporator / Gram Sarpanch").slice(0, 80),
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    state.budgetProposals.unshift(proposal);
+    saveCommunityState(state);
+    res.status(201).json({ proposal, state });
+  });
+
+  app.post("/api/community/budget-proposals/:id/vote", (req, res) => {
+    const state = getCommunityState();
+    const proposal = state.budgetProposals.find((p) => p.id === req.params.id);
+    if (!proposal) return res.status(404).json({ error: "Budget proposal not found" });
+    proposal.votedByUser = !proposal.votedByUser;
+    proposal.votes = Math.max(0, proposal.votes + (proposal.votedByUser ? 1 : -1));
+    saveCommunityState(state);
+    res.json({ proposal, state });
+  });
+
+  app.post("/api/community/budget-proposals/:id/status", (req, res) => {
+    const state = getCommunityState();
+    const proposal = state.budgetProposals.find((p) => p.id === req.params.id);
+    if (!proposal) return res.status(404).json({ error: "Budget proposal not found" });
+    const nextStatus = req.body?.status;
+    if (["Proposed", "Shortlisted in Ward Budget", "Sanctioned"].includes(nextStatus)) {
+      proposal.status = nextStatus;
+      if (nextStatus === "Shortlisted in Ward Budget") {
+        const upcoming = state.wardMeetings.find((m) => m.status === "Upcoming");
+        const agendaLine = `Budget Demand (₹${proposal.estimatedCostLakhs}L): ${proposal.title}`;
+        if (upcoming && !upcoming.agendaItems.includes(agendaLine)) {
+          upcoming.agendaItems.push(agendaLine);
+        }
+      }
+      saveCommunityState(state);
+    }
+    res.json({ proposal, state });
+  });
+
+  // 2. Citizen Engagement: Area Sabha / Ward Committee / Gram Sabha Agenda & RSVP
+  app.post("/api/community/ward-meetings/agenda", (req, res) => {
+    const state = getCommunityState();
+    const b = req.body ?? {};
+    const agendaText = String(b.agendaItem || "").trim().slice(0, 180);
+    if (!agendaText) return res.status(400).json({ error: "Agenda item is required" });
+    const meeting =
+      state.wardMeetings.find((m) => m.id === b.meetingId) ??
+      state.wardMeetings.find((m) => m.status === "Upcoming") ??
+      state.wardMeetings[0];
+    if (!meeting) return res.status(404).json({ error: "No Area Sabha meeting found" });
+    if (!meeting.agendaItems.includes(agendaText)) {
+      meeting.agendaItems.push(agendaText);
+    }
+    saveCommunityState(state);
+    res.json({ meeting, state });
+  });
+
+  app.post("/api/community/ward-meetings/:id/rsvp", (req, res) => {
+    const state = getCommunityState();
+    const meeting = state.wardMeetings.find((m) => m.id === req.params.id);
+    if (!meeting) return res.status(404).json({ error: "Meeting not found" });
+    meeting.rsvpedByUser = !meeting.rsvpedByUser;
+    meeting.attendeeCount = Math.max(0, meeting.attendeeCount + (meeting.rsvpedByUser ? 1 : -1));
+    saveCommunityState(state);
+    res.json({ meeting, state });
+  });
+
+  // 3. Councillors' & Elected Leaders' Leadership Dispatch
+  app.post("/api/community/leaders/:id/dispatch", (req, res) => {
+    const state = getCommunityState();
+    const leader = state.wardLeaders.find((l) => l.id === req.params.id);
+    if (!leader) return res.status(404).json({ error: "Leader profile not found" });
+    const b = req.body ?? {};
+    const subject = String(b.subject || "Citizen Accountability Representation").slice(0, 180);
+    const sender = String(b.sender || "Resident Citizen").slice(0, 80);
+    const linkedRef = b.linkedRef ? String(b.linkedRef).slice(0, 60) : undefined;
+    leader.dispatchedRequests.unshift({
+      id: `dr-${Date.now()}`,
+      subject,
+      sender,
+      date: new Date().toISOString().slice(0, 10),
+      linkedRef,
+    });
+    saveCommunityState(state);
+    res.json({ leader, state });
+  });
+
+  // 4. Civic Learning (Bala Janaagraha-style interactive modules)
+  app.post("/api/community/learning/:moduleId/complete", (req, res) => {
+    const state = getCommunityState();
+    const mod = state.learningProgress.find((m) => m.moduleId === req.params.moduleId);
+    if (!mod) return res.status(404).json({ error: "Learning module not found" });
+    const reflection = String(req.body?.reflection || "").trim().slice(0, 300);
+    const learnerName = String(req.body?.learnerName || "Student / Youth Citizen").slice(0, 80);
+    if (!mod.completedByUser) {
+      mod.completedByUser = true;
+      mod.completionsCount += 1;
+    }
+    if (reflection) mod.latestReflection = reflection;
+    mod.lastCompletedAt = new Date().toISOString().slice(0, 10);
+
+    const existingChamp = state.champions.find((c) => c.name === learnerName);
+    if (existingChamp) {
+      existingChamp.hours += 1;
+      existingChamp.verifiedActions += 1;
+    } else {
+      state.champions.unshift({
+        id: `ch-lrn-${Date.now()}`,
+        name: learnerName,
+        role: "Civic Learning Fellow",
+        sector: "education",
+        hours: 1,
+        badge: "Bala Civic Scholar",
+        verifiedActions: 1,
+      });
+    }
+    saveCommunityState(state);
+    res.json({ module: mod, state });
   });
 
   // Return JSON 404 for unknown /api/* routes instead of SPA HTML

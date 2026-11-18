@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import type { LanguageCode } from "../lib/i18n";
 import { UI_TRANSLATIONS } from "../lib/i18n";
-import StoryboardVideoStudio, { type StoryboardVillageInput } from "./StoryboardVideoStudio";
+import HyperlocalWeatherObservatory from "./HyperlocalWeatherObservatory";
+import MandiMarketObservatory from "./MandiMarketObservatory";
 
 type FacilityPoint = {
   id: string;
@@ -148,58 +149,6 @@ function getGeometryCenter(geometry: unknown): [number, number] {
     sumLat += pt[1];
   }
   return [sumLat / ring.length, sumLon / ring.length];
-}
-
-function toStoryboardInput(v: SectorInsightsVillage | null): StoryboardVillageInput | null {
-  if (!v) return null;
-  return {
-    villageName: v.villageName,
-    villageCode: v.villageCode,
-    mandalName: v.mandalName,
-    districtName: v.districtName,
-    population: v.population,
-    households: v.households,
-    areaSqKm: v.areaSqKm,
-    overallScore: v.overallScore,
-    vvi: v.vvi,
-    vviLevel: v.vviLevel,
-    geometry: v.geometry,
-    education: {
-      score: v.education.score,
-      literacyRate: v.education.literacyRate,
-      femaleLiteracyRate: v.education.femaleLiteracyRate,
-      nearestSchoolKm: v.education.nearestSchoolKm,
-      nearestSchoolName: v.education.nearestSchoolName,
-    },
-    health: {
-      score: v.health.score,
-      latrinePct: v.health.latrineWithinPct,
-      cleanFuelPct: v.health.cleanCookingFuelPct,
-      nearestHealthKm: v.health.nearestHealthKm,
-      nearestHealthName: v.health.nearestHealthName,
-    },
-    water: {
-      score: v.water.score,
-      tapPct: v.water.tapWaterTotalPct,
-      tanksTotal: v.water.tanksTotal,
-      waterWithinPct: v.water.waterWithinPremisesPct,
-      nearestWaterKm: v.water.nearestWaterKm,
-    },
-    livelihood: {
-      score: v.livelihood.score,
-      wpr: v.livelihood.wpr,
-      marginalPct: v.livelihood.marginalWorkerPct,
-      bankingPct: v.livelihood.bankingAccessPct,
-      nearestHubKm: v.livelihood.nearestLivelihoodKm,
-    },
-    environment: {
-      score: v.environment.score,
-      solarMj: v.environment.avgSolarMj,
-      biomassPct: v.environment.solidBiomassPct,
-      tempC: v.environment.currentTempC,
-      pm25: v.environment.pm25,
-    },
-  };
 }
 
 /* =========================================================
@@ -537,8 +486,6 @@ export function WaterGroundwaterPanel({
           </table>
         </div>
       </div>
-
-      <StoryboardVideoStudio lang={lang} village={toStoryboardInput(village)} focusSector="water" />
     </div>
   );
 }
@@ -877,7 +824,7 @@ export function EnvironmentWaterbodiesPanel({
         </div>
       </div>
 
-      <StoryboardVideoStudio lang={lang} village={toStoryboardInput(village)} focusSector="environment" />
+      <HyperlocalWeatherObservatory village={village} />
     </div>
   );
 }
@@ -951,7 +898,7 @@ export function LivelihoodVisualPlanPanel({
         </div>
       </div>
 
-      <StoryboardVideoStudio lang={lang} village={toStoryboardInput(village)} focusSector="livelihood" />
+      <MandiMarketObservatory village={village} />
     </div>
   );
 }

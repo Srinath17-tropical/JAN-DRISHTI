@@ -862,7 +862,7 @@ export default function AncientWisdomVisual({
             className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold bg-gradient-to-r from-amber-600 to-cyan-600 hover:opacity-95 text-white transition shrink-0"
           >
             <Maximize2 size={12} />
-            <span>Full-Screen Wisdom Cinema</span>
+            <span>Expanded Wisdom View</span>
           </button>
         </div>
 
@@ -997,7 +997,7 @@ export default function AncientWisdomVisual({
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-white text-slate-900 hover:bg-orange-100 shrink-0"
             >
               <X size={14} />
-              <span>Exit Cinema</span>
+              <span>Close Expanded View</span>
             </button>
           </div>
 

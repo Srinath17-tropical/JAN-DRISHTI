@@ -784,7 +784,7 @@ export default function ViciousToVirtuousCycle({
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-gradient-to-r from-orange-600 to-emerald-600 hover:opacity-95 text-white transition whitespace-nowrap"
               >
                 <Maximize2 size={13} />
-                <span>Full-Screen Cinema</span>
+                <span>Expanded Cycle View</span>
               </button>
             )}
           </div>

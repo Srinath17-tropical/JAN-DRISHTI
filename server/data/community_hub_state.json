@@ -1,4 +1,300 @@
 {
+  "schemaVersion": 4,
+  "obligations": [
+    {
+      "id": "obl-hea-1",
+      "sector": "health",
+      "title": "Vector-Free Zone",
+      "description": "Monthly inspections to eliminate stagnant water in open drains, tires, and vacant plots to prevent dengue & malaria.",
+      "youthAndKidsRole": "Home Mosquito Patrols (flowerpots & coolers)",
+      "targetMetric": "Monthly Ward Inspection",
+      "status": "In Progress",
+      "contributorsCount": 14,
+      "lastUpdated": "2026-11-16"
+    },
+    {
+      "id": "obl-hea-2",
+      "sector": "health",
+      "title": "100% Maternal & Child Tracking",
+      "description": "Verify every pregnant woman and child <5 is registered with Anganwadi or PHC for immunization & nutrition.",
+      "youthAndKidsRole": "NSS/Nursing youth assist ASHA survey",
+      "targetMetric": "100% Anganwadi Coverage",
+      "status": "Completed",
+      "contributorsCount": 9,
+      "lastUpdated": "2026-11-12"
+    },
+    {
+      "id": "obl-hea-3",
+      "sector": "health",
+      "title": "Quarterly Preventive Health Camps",
+      "description": "Partner with clinics or NGOs for free BP, diabetes, anemia, and eye screening camps every 90 days.",
+      "youthAndKidsRole": "College & medical students manage camp desks",
+      "targetMetric": "1 Camp / 90 Days",
+      "status": "In Progress",
+      "contributorsCount": 11,
+      "lastUpdated": "2026-11-14"
+    },
+    {
+      "id": "obl-hea-4",
+      "sector": "health",
+      "title": "Community First-Responder Squad",
+      "description": "Train at least 10 local youth volunteers per ward in basic CPR, first aid, heatstroke & snakebite response.",
+      "youthAndKidsRole": "10 certified Youth First-Responders",
+      "targetMetric": "10 Trained Youth",
+      "status": "Pending",
+      "contributorsCount": 4,
+      "lastUpdated": "2026-11-10"
+    },
+    {
+      "id": "obl-hea-5",
+      "sector": "health",
+      "title": "Mental Health & Substance Abuse Awareness",
+      "description": "Host bi-annual youth & parent workshops addressing stress, addiction, and emotional well-being.",
+      "youthAndKidsRole": "Youth clubs host peer counselor circles",
+      "targetMetric": "2 Workshops / Year",
+      "status": "Pending",
+      "contributorsCount": 3,
+      "lastUpdated": "2026-11-08"
+    },
+    {
+      "id": "obl-edu-1",
+      "sector": "education",
+      "title": "Zero Out-of-School Children",
+      "description": "Neighborhood survey to identify school dropouts or child laborers and enroll 100% in local schools.",
+      "youthAndKidsRole": "Youth map households & aid SMC enrollment",
+      "targetMetric": "100% Enrollment",
+      "status": "Completed",
+      "contributorsCount": 12,
+      "lastUpdated": "2026-11-11"
+    },
+    {
+      "id": "obl-edu-2",
+      "sector": "education",
+      "title": "School Infrastructure Audit",
+      "description": "Ensure every school has functional separate toilets, clean drinking water, electricity, and intact roofs.",
+      "youthAndKidsRole": "Youth/SMC parents log quarterly checklist",
+      "targetMetric": "Quarterly School Check",
+      "status": "In Progress",
+      "contributorsCount": 16,
+      "lastUpdated": "2026-11-16"
+    },
+    {
+      "id": "obl-edu-3",
+      "sector": "education",
+      "title": "Weekend Remedial & Reading Clubs",
+      "description": "College students & retired residents run 2-hr weekend classes for slow learners, foundational literacy & math.",
+      "youthAndKidsRole": "Youth lead weekend tutoring; kids buddy up",
+      "targetMetric": "2 Hrs Every Weekend",
+      "status": "In Progress",
+      "contributorsCount": 19,
+      "lastUpdated": "2026-11-15"
+    },
+    {
+      "id": "obl-edu-4",
+      "sector": "education",
+      "title": "Digital Literacy for Elders & Women",
+      "description": "Youth volunteers host monthly workshops teaching smartphone banking, UPI safety, and basic computer skills.",
+      "youthAndKidsRole": "Tech youth host 1-on-1 UPI clinics",
+      "targetMetric": "Monthly Clinic",
+      "status": "Pending",
+      "contributorsCount": 6,
+      "lastUpdated": "2026-11-09"
+    },
+    {
+      "id": "obl-edu-5",
+      "sector": "education",
+      "title": "Neighborhood Book & Stationery Bank",
+      "description": "Maintain a community drop-box at the library or hall to recycle textbooks, uniforms, and school bags.",
+      "youthAndKidsRole": "School kids donate books & curate shelves",
+      "targetMetric": "Active Drop-Box",
+      "status": "Completed",
+      "contributorsCount": 22,
+      "lastUpdated": "2026-11-13"
+    },
+    {
+      "id": "obl-wat-1",
+      "sector": "water",
+      "title": "100% Safe Drinking Water Access",
+      "description": "Conduct quarterly water-quality testing (TDS and contamination checks) at public taps, borewells, and school filters.",
+      "youthAndKidsRole": "Science students & youth run FTK TDS tests",
+      "targetMetric": "Quarterly Lab / FTK Test",
+      "status": "In Progress",
+      "contributorsCount": 13,
+      "lastUpdated": "2026-11-15"
+    },
+    {
+      "id": "obl-wat-2",
+      "sector": "water",
+      "title": "Zero Open Defecation & Urination Spots",
+      "description": "Maintain clean, well-lit public toilets and eliminate open urination corners through monitoring & beautification.",
+      "youthAndKidsRole": "Community murals & school sanitation teams",
+      "targetMetric": "Zero Open Spots",
+      "status": "Completed",
+      "contributorsCount": 18,
+      "lastUpdated": "2026-11-12"
+    },
+    {
+      "id": "obl-wat-3",
+      "sector": "water",
+      "title": "Rainwater Harvesting & Groundwater Recharge",
+      "description": "Build or revive at least one rainwater recharge pit per street, apartment complex, or public building.",
+      "youthAndKidsRole": "Youth NSS teams audit roof-to-pit pipes",
+      "targetMetric": "1 Pit / Street",
+      "status": "Pending",
+      "contributorsCount": 5,
+      "lastUpdated": "2026-11-10"
+    },
+    {
+      "id": "obl-wat-4",
+      "sector": "water",
+      "title": "Local Water Body Adoption",
+      "description": "Adopt nearby lakes, stepwells, or ponds for quarterly silt removal, weeding, and boundary protection.",
+      "youthAndKidsRole": "18+ youth squads lead lake clean-up drives",
+      "targetMetric": "Quarterly Tank Audit",
+      "status": "Completed",
+      "contributorsCount": 31,
+      "lastUpdated": "2026-11-14"
+    },
+    {
+      "id": "obl-wat-5",
+      "sector": "water",
+      "title": "Greywater & Drain Maintenance",
+      "description": "Keep neighborhood storm drains free of plastic silt before the monsoon arrives.",
+      "youthAndKidsRole": "Kids flag leaks; youth clear pre-monsoon drains",
+      "targetMetric": "Pre-Monsoon Clearance",
+      "status": "In Progress",
+      "contributorsCount": 15,
+      "lastUpdated": "2026-11-16"
+    },
+    {
+      "id": "obl-liv-1",
+      "sector": "livelihood",
+      "title": "Local Skill & Unemployment Registry",
+      "description": "Maintain an opt-in directory of unemployed youth and homemakers looking for vocational training or local jobs.",
+      "youthAndKidsRole": "Youth coordinators update skill registry",
+      "targetMetric": "Updated Monthly",
+      "status": "In Progress",
+      "contributorsCount": 10,
+      "lastUpdated": "2026-11-14"
+    },
+    {
+      "id": "obl-liv-2",
+      "sector": "livelihood",
+      "title": "Active Women's Self-Help Groups (SHGs)",
+      "description": "Support local women in forming or strengthening SHGs for tailoring, food processing, handicrafts, or urban farming.",
+      "youthAndKidsRole": "College youth help SHGs build digital catalogs",
+      "targetMetric": "All SHGs Market-Linked",
+      "status": "In Progress",
+      "contributorsCount": 17,
+      "lastUpdated": "2026-11-15"
+    },
+    {
+      "id": "obl-liv-3",
+      "sector": "livelihood",
+      "title": "100% Government Scheme Saturation",
+      "description": "Run camps to ensure all eligible artisans, street vendors, and workers receive PM-SVANidhi, PM-Vishwakarma, Mudra, or e-Shram.",
+      "youthAndKidsRole": "Youth assist vendors with document verification",
+      "targetMetric": "100% Eligible Enrolled",
+      "status": "Pending",
+      "contributorsCount": 7,
+      "lastUpdated": "2026-11-11"
+    },
+    {
+      "id": "obl-liv-4",
+      "sector": "livelihood",
+      "title": "Hyper-Local Circular Economy (\"Vocal for Local\")",
+      "description": "Map and promote neighborhood carpenters, plumbers, tailors, farmers, and small vendors inside the app.",
+      "youthAndKidsRole": "Youth onboard artisans onto UPI QR & maps",
+      "targetMetric": "Local Vendor Map",
+      "status": "Pending",
+      "contributorsCount": 6,
+      "lastUpdated": "2026-11-09"
+    },
+    {
+      "id": "obl-liv-5",
+      "sector": "livelihood",
+      "title": "Youth Apprenticeship & Mentorship",
+      "description": "Connect local business owners with young adults for 3-month paid or certified skill internships.",
+      "youthAndKidsRole": "Workshops mentor local youth trainees",
+      "targetMetric": "3-Month Internships",
+      "status": "Pending",
+      "contributorsCount": 4,
+      "lastUpdated": "2026-11-07"
+    },
+    {
+      "id": "obl-env-1",
+      "sector": "environment",
+      "title": "Plastic-Free Streets & Markets",
+      "description": "Organize monthly plastic collection drives and convince vegetable & grocery vendors to switch to cloth or paper bags.",
+      "youthAndKidsRole": "Youth lead plastic drives & vendor pledges",
+      "targetMetric": "Monthly Market Drive",
+      "status": "In Progress",
+      "contributorsCount": 21,
+      "lastUpdated": "2026-11-16"
+    },
+    {
+      "id": "obl-env-2",
+      "sector": "environment",
+      "title": "Native Tree Plantation & 2-Year Survival Tracking",
+      "description": "Plant native trees on barren plots and assign geo-tagged ownership so every sapling is watered for 24 months.",
+      "youthAndKidsRole": "Every child adopts 1 sapling (\"My Tree Buddy\")",
+      "targetMetric": "24-Month Survival Log",
+      "status": "In Progress",
+      "contributorsCount": 26,
+      "lastUpdated": "2026-11-15"
+    },
+    {
+      "id": "obl-env-3",
+      "sector": "environment",
+      "title": "100% Household Waste Segregation",
+      "description": "Ensure households separate wet (kitchen) waste from dry (recyclable) waste before collection.",
+      "youthAndKidsRole": "Bal Mitra kids guide home wet/dry bin sorting",
+      "targetMetric": "100% Ward Segregation",
+      "status": "Completed",
+      "contributorsCount": 28,
+      "lastUpdated": "2026-11-13"
+    },
+    {
+      "id": "obl-env-4",
+      "sector": "environment",
+      "title": "Community Composting Pits",
+      "description": "Set up aerobic compost bins in parks or apartments to convert wet waste and dry leaves into organic manure.",
+      "youthAndKidsRole": "Eco-clubs manage park compost turning",
+      "targetMetric": "Active Compost Units",
+      "status": "Pending",
+      "contributorsCount": 8,
+      "lastUpdated": "2026-11-10"
+    },
+    {
+      "id": "obl-env-5",
+      "sector": "environment",
+      "title": "Zero Waste Burning",
+      "description": "Enforce a strict neighborhood ban on burning dry leaves, plastic, or garbage.",
+      "youthAndKidsRole": "Patrol logs burning blackspots for GP action",
+      "targetMetric": "Zero Burning Incidents",
+      "status": "In Progress",
+      "contributorsCount": 12,
+      "lastUpdated": "2026-11-14"
+    }
+  ],
+  "saplings": [
+    {
+      "id": "sap-1",
+      "guardianName": "Ananya Verma (Class 7)",
+      "species": "Native Neem (Azadirachta)",
+      "landmark": "ZPHS Narsapur Gate",
+      "villageName": "Narsapur",
+      "adoptedAt": "2026-11-12"
+    },
+    {
+      "id": "sap-2",
+      "guardianName": "Rohan Sharma (Class 8)",
+      "species": "Pongamia / Kanuga",
+      "landmark": "Pedda Cheruvu East Bund",
+      "villageName": "Narsapur",
+      "adoptedAt": "2026-11-14"
+    }
+  ],
   "issues": [
     {
       "id": "iss-edu-01",
@@ -42,7 +338,24 @@
           ]
         }
       ],
-      "peerVerified": false
+      "peerVerified": false,
+      "categoryId": "education-general",
+      "categoryLabel": "EDUCATION Citizen Grievance",
+      "mandalName": "Medak",
+      "settlementType": "Rural Gram Panchayat",
+      "affectedPeople": 85,
+      "recommendedPathway": "hybrid",
+      "pathwayHeadline": "Hybrid: File Official Petition to Mandal Educational Officer (MEO) & DEO (Medak) + NGO/Youth Support",
+      "escalationStatus": "Not Escalated",
+      "timeline": [
+        {
+          "id": "tl-init-iss-edu-01",
+          "date": "2026-11-15",
+          "actor": "Kavitha Reddy (SMC Parent)",
+          "action": "Complaint Logged",
+          "note": "Class 6–8 rooms need 14 bench repairs and solar study lamps before pre-board remedial camp."
+        }
+      ]
     },
     {
       "id": "iss-wat-01",
@@ -86,7 +399,24 @@
         }
       ],
       "peerVerified": true,
-      "verifiedBy": "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)"
+      "verifiedBy": "Sarpanch & Ward 3 Peer Audit (52 Residents Verified)",
+      "categoryId": "water-general",
+      "categoryLabel": "WATER Citizen Grievance",
+      "mandalName": "Medak",
+      "settlementType": "Rural Gram Panchayat",
+      "affectedPeople": 85,
+      "recommendedPathway": "govt_escalation",
+      "pathwayHeadline": "Escalate to Assistant Engineer (Mission Bhagiratha / RWS) & Municipal Water Works & Gram Sarpanch & Constituency MLA (Medak)",
+      "escalationStatus": "Resolved",
+      "timeline": [
+        {
+          "id": "tl-init-iss-wat-01",
+          "date": "2026-11-10",
+          "actor": "Mallesh Goud (Neeruganti)",
+          "action": "Complaint Logged",
+          "note": "Overflow feeder kula has vegetation blockage reducing percolation recharge alongside a slow gate-valve leak."
+        }
+      ]
     },
     {
       "id": "iss-hea-01",
@@ -127,7 +457,24 @@
           ]
         }
       ],
-      "peerVerified": false
+      "peerVerified": false,
+      "categoryId": "health-general",
+      "categoryLabel": "HEALTH Citizen Grievance",
+      "mandalName": "Siddipet",
+      "settlementType": "Rural Gram Panchayat",
+      "affectedPeople": 85,
+      "recommendedPathway": "govt_escalation",
+      "pathwayHeadline": "Escalate to MPDO, PHC Medical Officer & DMHO (Siddipet) & Gram Sarpanch & Constituency MLA (Siddipet)",
+      "escalationStatus": "Not Escalated",
+      "timeline": [
+        {
+          "id": "tl-init-iss-hea-01",
+          "date": "2026-11-16",
+          "actor": "Lakshmi Bai (ASHA Worker)",
+          "action": "Complaint Logged",
+          "note": "Post-rain greywater pools behind kitchen shed require soak-pit trenching and lime/larvicide sanitization."
+        }
+      ]
     },
     {
       "id": "iss-liv-01",
@@ -169,7 +516,24 @@
           ]
         }
       ],
-      "peerVerified": false
+      "peerVerified": false,
+      "categoryId": "livelihood-general",
+      "categoryLabel": "LIVELIHOOD Citizen Grievance",
+      "mandalName": "Nizamabad",
+      "settlementType": "Rural Gram Panchayat",
+      "affectedPeople": 85,
+      "recommendedPathway": "ngo_collab",
+      "pathwayHeadline": "Collaborate with Sector NGO Partner + Gram Sarpanch & Constituency MLA (Nizamabad) Intimation",
+      "escalationStatus": "Not Escalated",
+      "timeline": [
+        {
+          "id": "tl-init-iss-liv-01",
+          "date": "2026-11-14",
+          "actor": "Padma Vani (VAO / VO Leader)",
+          "action": "Complaint Logged",
+          "note": "28 women artisans seek direct ONDC/CSR buyer catalogue onboarding and 6 hygienic stainless drying trays."
+        }
+      ]
     },
     {
       "id": "iss-env-01",
@@ -210,7 +574,24 @@
           ]
         }
       ],
-      "peerVerified": false
+      "peerVerified": false,
+      "categoryId": "environment-general",
+      "categoryLabel": "ENVIRONMENT Citizen Grievance",
+      "mandalName": "Nalgonda",
+      "settlementType": "Rural Gram Panchayat",
+      "affectedPeople": 85,
+      "recommendedPathway": "youth_mobilization",
+      "pathwayHeadline": "Mobilize NSS Youth & Teacher-Supervised Bal Mitra Squad",
+      "escalationStatus": "Not Escalated",
+      "timeline": [
+        {
+          "id": "tl-init-iss-env-01",
+          "date": "2026-11-16",
+          "actor": "Srinivas Rao (Eco Club Teacher)",
+          "action": "Complaint Logged",
+          "note": "Micro-heat island stretch along East Main Road requires avenue tree-guards and e-waste drop box."
+        }
+      ]
     }
   ],
   "drives": [
@@ -380,26 +761,242 @@
       "verifiedActions": 5
     }
   ],
+  "budgetProposals": [
+    {
+      "id": "bp-01",
+      "sector": "water",
+      "title": "Covered Storm Drain & Bio-Filter Recharge Pit at Anganwadi Lane",
+      "rationale": "Stops post-rain greywater stagnation behind Anganwadi-2 and recharges community borewell.",
+      "location": "Anganwadi-2 & SC Colony Crossroad",
+      "estimatedCostLakhs": 6.5,
+      "votes": 64,
+      "votedByUser": false,
+      "proposerName": "Lakshmi Bai & Ward 3 Residents",
+      "status": "Shortlisted in Ward Budget",
+      "assignedLeaderRole": "Ward Corporator / Gram Sarpanch",
+      "createdAt": "2026-11-12"
+    },
+    {
+      "id": "bp-02",
+      "sector": "education",
+      "title": "School Drinking Water RO Plant & Girls Toilet Waterproofing",
+      "rationale": "Addresses 145 upper-primary students lacking safe potable water & intact toilet roof.",
+      "location": "ZPHS Upper Primary Wing",
+      "estimatedCostLakhs": 4.8,
+      "votes": 52,
+      "votedByUser": false,
+      "proposerName": "Kavitha Reddy (SMC)",
+      "status": "Shortlisted in Ward Budget",
+      "assignedLeaderRole": "Constituency MLA (CDF) & MEO",
+      "createdAt": "2026-11-14"
+    },
+    {
+      "id": "bp-03",
+      "sector": "health",
+      "title": "LED Solar Streetlights on PHC & Evening Bus-Stop Approach Road",
+      "rationale": "Improves safe evening clinic access for women & elderly residents.",
+      "location": "Main Bazaar to PHC Approach",
+      "estimatedCostLakhs": 3.2,
+      "votes": 39,
+      "votedByUser": false,
+      "proposerName": "Ramesh Goud & Youth Wing",
+      "status": "Proposed",
+      "assignedLeaderRole": "Ward Corporator / Gram Sarpanch",
+      "createdAt": "2026-11-15"
+    },
+    {
+      "id": "bp-04",
+      "sector": "livelihood",
+      "title": "Women SHG Market Shed & Solar Turmeric/Millet Drying Platform",
+      "rationale": "Gives 28 SHG producers weatherproof grading & direct weekly haat counter.",
+      "location": "Gram Panchayat / Rythu Vedika Yard",
+      "estimatedCostLakhs": 5.4,
+      "votes": 31,
+      "votedByUser": false,
+      "proposerName": "Padma Vani (VO Leader)",
+      "status": "Proposed",
+      "assignedLeaderRole": "MPDO / SERP Mandal Project Officer",
+      "createdAt": "2026-11-16"
+    },
+    {
+      "id": "bp-05",
+      "sector": "environment",
+      "title": "East Tank-Bund Walking Track, Tree Guards & Wet-Waste Compost Drums",
+      "rationale": "Prevents plastic dumping and protects 180 newly planted native shade saplings.",
+      "location": "Pedda Cheruvu East Bund",
+      "estimatedCostLakhs": 4,
+      "votes": 28,
+      "votedByUser": false,
+      "proposerName": "Srinivas Rao (Eco Club)",
+      "status": "Sanctioned",
+      "assignedLeaderRole": "Gram Sarpanch & Haritha Officer",
+      "createdAt": "2026-11-10"
+    }
+  ],
+  "wardMeetings": [
+    {
+      "id": "wm-01",
+      "title": "Quarterly Ward Committee / Gram Sabha — Participatory Budget Sign-off",
+      "sabhaType": "Area Sabha",
+      "dateLabel": "Sun, 29 Nov 2026",
+      "timeSlot": "10:00 AM – 12:30 PM",
+      "venue": "Gram Panchayat Bhavan / Municipal Ward Hall",
+      "chairRole": "Gram Sarpanch / Ward Corporator & MPDO",
+      "agendaItems": [
+        "Finalize top 3 My Village / Ward My Budget priorities (Total Envelope: ₹25 Lakhs)",
+        "Review overdue drainage & school roof Prajavani tickets (>5 days SLA)",
+        "Approve Pre-Monsoon Cheruvu desiltation & RWH recharge pit roster"
+      ],
+      "attendeeCount": 47,
+      "rsvpedByUser": false,
+      "status": "Upcoming"
+    },
+    {
+      "id": "wm-02",
+      "title": "Area Sabha No. 2 — Safe Drinking Water & Anganwadi Sanitation Audit",
+      "sabhaType": "Ward Committee",
+      "dateLabel": "Wed, 11 Nov 2026",
+      "timeSlot": "04:00 PM – 05:30 PM",
+      "venue": "ZPHS Verandah / Anganwadi-2 Courtyard",
+      "chairRole": "Ward Member & AE Mission Bhagiratha",
+      "agendaItems": [
+        "Audit tail-end tap pressure across SC/BC Colony lanes",
+        "Inspect Pedda Cheruvu valve collar replacement"
+      ],
+      "attendeeCount": 38,
+      "rsvpedByUser": true,
+      "status": "Minutes Filed",
+      "resolutionSummary": "Resolution #14 passed: AE RWS replaced Pedda Cheruvu valve (Ticket RWS-MB-2026-1908); Ward 3 peer audit confirmed resolution."
+    }
+  ],
+  "wardLeaders": [
+    {
+      "id": "ldr-sarpanch",
+      "roleTitle": "Gram Sarpanch / Ward Corporator",
+      "tier": "Elected Ward / GP",
+      "officeName": "Local Body & Standing Ward Committee",
+      "statutoryMandate": "Chairs Area/Gram Sabha, prioritizes 15th Finance Commission & local municipal ward budget works, signs off sanitation & streetlight tenders.",
+      "helplineOrPortal": "Ward Office · Dial 1902",
+      "slaDays": 4,
+      "resolvedCount": 19,
+      "budgetUtilizedPct": 74,
+      "dispatchedRequests": [
+        {
+          "id": "dr-1",
+          "subject": "Shortlisted Covered Storm Drain Proposal (₹6.5L) for Next Sabha Agenda",
+          "sender": "Ward 3 Citizen Coalition",
+          "date": "2026-11-15"
+        }
+      ]
+    },
+    {
+      "id": "ldr-officer",
+      "roleTitle": "MPDO / Municipal Engineer & Sectoral Officers",
+      "tier": "Mandal / Municipal Officer",
+      "officeName": "Mandal Praja Parishad & RWS / MEO / Sanitary Wing",
+      "statutoryMandate": "Technical estimates, Mission Bhagiratha pipeline maintenance, PHC medicine indent, Mana Ooru-Mana Badi school repairs & SBM-G sanitation.",
+      "helplineOrPortal": "prajavani.telangana.gov.in · 1800-425-7470",
+      "slaDays": 7,
+      "resolvedCount": 24,
+      "budgetUtilizedPct": 81,
+      "dispatchedRequests": [
+        {
+          "id": "dr-2",
+          "subject": "ZPHS Classroom Roof Waterproofing & Desk Estimate Request",
+          "sender": "Kavitha Reddy (SMC Parent)",
+          "date": "2026-11-16",
+          "linkedRef": "TS-PRAJ-2026-44812"
+        }
+      ]
+    },
+    {
+      "id": "ldr-mla",
+      "roleTitle": "Constituency MLA & District Collector (Prajavani)",
+      "tier": "Constituency MLA / Collectorate",
+      "officeName": "Assembly Constituency CDF & Collectorate Prajavani Cell",
+      "statutoryMandate": "Sanctions MLA Constituency Development Funds (>₹5L capital works), holds Collectorate Prajavani reviews every Monday, and oversees District departments.",
+      "helplineOrPortal": "pgportal.gov.in · Collector Prajavani Desk",
+      "slaDays": 14,
+      "resolvedCount": 11,
+      "budgetUtilizedPct": 68,
+      "dispatchedRequests": []
+    }
+  ],
+  "learningProgress": [
+    {
+      "moduleId": "learn-budget-01",
+      "completionsCount": 18,
+      "completedByUser": false
+    },
+    {
+      "moduleId": "learn-health-02",
+      "completionsCount": 24,
+      "completedByUser": true,
+      "latestReflection": "Checked 4 households near Anganwadi-2 for standing rainwater in tyres.",
+      "lastCompletedAt": "2026-11-14"
+    },
+    {
+      "moduleId": "learn-water-03",
+      "completionsCount": 15,
+      "completedByUser": false
+    },
+    {
+      "moduleId": "learn-sabha-04",
+      "completionsCount": 9,
+      "completedByUser": false
+    }
+  ],
   "ngoDirectory": [
     {
-      "name": "Pratham Deccan Chapter",
-      "focus": "Education · Foundational Literacy",
-      "wardReach": "18 Mandals"
+      "name": "Pratham Telangana & Deccan Education Chapter",
+      "focus": "Education · Foundational Literacy & Classroom Kits",
+      "wardReach": "24 Districts",
+      "sectors": [
+        "education"
+      ]
     },
     {
-      "name": "Kakatiya Jala Samithi",
-      "focus": "Water · Chain-Tank Revival",
-      "wardReach": "32 Villages"
+      "name": "Akshaya Patra / Naandi Rural School Support",
+      "focus": "Education & Health · School Water & Toilets",
+      "wardReach": "18 Mandals",
+      "sectors": [
+        "education",
+        "health"
+      ]
     },
     {
-      "name": "Deccan Artisan Collective",
-      "focus": "Livelihood · SHG & FPO Links",
-      "wardReach": "14 Clusters"
+      "name": "Kakatiya Jala Samithi & Bala Vikasa Water Network",
+      "focus": "Water · Chain-Tank Revival & RO Plants",
+      "wardReach": "32 Mandals",
+      "sectors": [
+        "water",
+        "environment"
+      ]
     },
     {
-      "name": "Telangana Green Youth Network",
-      "focus": "Environment · Native Groves & E-Waste",
-      "wardReach": "27 Wards"
+      "name": "Doctors For You / Rural Swachh Health Collective",
+      "focus": "Health · PHC Medical Camps & Vector Control",
+      "wardReach": "15 Clusters",
+      "sectors": [
+        "health"
+      ]
+    },
+    {
+      "name": "Deccan Artisan & SERP FPO Support Collective",
+      "focus": "Livelihood · SHG & FPO Market Links",
+      "wardReach": "14 Clusters",
+      "sectors": [
+        "livelihood"
+      ]
+    },
+    {
+      "name": "Telangana Green Youth & Haritha Eco Alliance",
+      "focus": "Environment · Native Groves & Eco-Clubs",
+      "wardReach": "27 Wards",
+      "sectors": [
+        "environment",
+        "water"
+      ]
     }
   ]
 }

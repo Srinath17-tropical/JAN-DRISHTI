@@ -31,8 +31,6 @@ type TranslationDictionary = {
   macroEyebrow: string;
   macroTitle: string;
   macroSub: string;
-  storyboardTitle: string;
-  storyboardSub: string;
   playBriefing: string;
   pauseBriefing: string;
   downloadPng: string;
@@ -73,9 +71,6 @@ export const UI_TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     macroTitle: "Inflation Balance (Food & Core) & Rupee Value Appreciation",
     macroSub:
       "How rural cold-chain infrastructure, tank-irrigated yields, PM-KUSUM solar pumps, and agro-value exports stabilize CPI inflation and strengthen INR purchasing power.",
-    storyboardTitle: "Video Documentary, Photo Animator & Storyboard Studio (Free)",
-    storyboardSub:
-      "Render a real 30fps playable audiovisual video with photo Ken Burns motion, animated GIS boundaries, live metrics, and audio track — 100% free in your browser.",
     playBriefing: "Live Motion Preview",
     pauseBriefing: "Pause Preview",
     downloadPng: "Download PNG Poster",
@@ -114,9 +109,6 @@ export const UI_TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     macroTitle: "ద్రవ్యోల్బణ నియంత్రణ (ఆహార & కోర్) మరియు రూపాయి విలువ బలోపేతం",
     macroSub:
       "గ్రామీణ కోల్డ్-చైన్, చెరువుల పునరుద్ధరణ, సోలార్ పంపులు మరియు ఎఫ్‌పీఓ ఎగుమతులు ఆహార ద్రవ్యోల్బణాన్ని తగ్గించి రూపాయి విలువను ఎలా బలోపేతం చేస్తాయో చూడండి.",
-    storyboardTitle: "వీడియో డాక్యుమెంటరీ, ఫోటో యానిమేటర్ & స్టోరీబోర్డ్ స్టూడియో (ఉచితం)",
-    storyboardSub:
-      "ఫోటో యానిమేషన్, కదిలే GIS మ్యాప్ మరియు ఆడియో ట్రాక్‌తో నిజమైన 30fps వీడియోను తయారు చేసి ఇక్కడే ప్లే మరియు డౌన్‌లోడ్ చేయండి.",
     playBriefing: "లైవ్ మోషన్ ప్రివ్యూ",
     pauseBriefing: "ఆపండి",
     downloadPng: "PNG పోస్టర్ డౌన్‌లోడ్",
@@ -155,9 +147,6 @@ export const UI_TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     macroTitle: "मुद्रास्फीति संतुलन (खाद्य एवं कोर) और रुपये की मजबूती",
     macroSub:
       "ग्रामीण कोल्ड-चेन, तालाब सिंचाई, पीएम-कुसुम सौर पंप और कृषि-प्रसंस्करण निर्यात किस प्रकार खाद्य महंगाई कम कर रुपये को मजबूत करते हैं।",
-    storyboardTitle: "वीडियो डॉक्यूमेंट्री, फोटो एनिमेटर एवं स्टोरीबोर्ड स्टूडियो (निःशुल्क)",
-    storyboardSub:
-      "फोटो केन-बर्न्स मोशन, एनिमेटेड GIS सीमा और ऑडियो ट्रैक के साथ असली 30fps वीडियो यहीं रेंडर करें, चलाएँ और डाउनलोड करें।",
     playBriefing: "लाइव मोशन प्रीव्यू",
     pauseBriefing: "रोकें",
     downloadPng: "PNG पोस्टर डाउनलोड",
