@@ -87,7 +87,8 @@ import {
 import IndiaMapTransitionBackdrop from "../components/IndiaMapTransitionBackdrop";
 import HyperlocalWeatherObservatory from "../components/HyperlocalWeatherObservatory";
 import MandiMarketObservatory from "../components/MandiMarketObservatory";
-import LiveTrafficCorridorStudio from "../components/LiveTrafficCorridorStudio";
+import CitizenLifelineSchemeStudio from "../components/CitizenLifelineSchemeStudio";
+import SectorGoodActionsPanel from "../components/SectorGoodActionsPanel";
 
 const DevelopmentMap = dynamic(
   () => import("../components/gis/DevelopmentMap"),
@@ -3209,10 +3210,10 @@ function OverviewScreen({
       />
 
       {/* =================================================
-          LIVE TRAFFIC CORRIDOR + WEATHER / HEATWAVE + e-NAM MANDI OBSERVATORIES
+          CITIZEN WELFARE TWIN + WEATHER / HEATWAVE + e-NAM MANDI OBSERVATORIES
       ================================================= */}
       <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 space-y-8">
-        <LiveTrafficCorridorStudio village={insightsVillage} />
+        <CitizenLifelineSchemeStudio village={insightsVillage} defaultPersona="farmer" />
         <HyperlocalWeatherObservatory village={insightsVillage} />
         <MandiMarketObservatory village={insightsVillage} />
       </section>
@@ -4908,14 +4909,20 @@ function DomainMap({
 
       {/* Sector-Specific Directory, Groundwater Observatory, Hospital Matrix & Visual Solution Plans */}
       {activeDomain === "education" && (
-        <EducationInstitutionsPanel lang={lang} village={insightsVillage} />
+        <div className="space-y-8">
+          <EducationInstitutionsPanel lang={lang} village={insightsVillage} />
+          <SectorGoodActionsPanel sector="education" village={insightsVillage} />
+        </div>
       )}
       {activeDomain === "water" && (
-        <WaterGroundwaterPanel
-          lang={lang}
-          village={insightsVillage}
-          groundwater={stateInsights?.groundwater_by_district ?? []}
-        />
+        <div className="space-y-8">
+          <WaterGroundwaterPanel
+            lang={lang}
+            village={insightsVillage}
+            groundwater={stateInsights?.groundwater_by_district ?? []}
+          />
+          <SectorGoodActionsPanel sector="water" village={insightsVillage} />
+        </div>
       )}
       {activeDomain === "health" && (
         <div className="space-y-8">
@@ -4924,14 +4931,21 @@ function DomainMap({
             village={insightsVillage}
             healthcareTiers={stateInsights?.healthcare_tiers ?? []}
           />
-          <LiveTrafficCorridorStudio village={insightsVillage} />
+          <SectorGoodActionsPanel sector="health" village={insightsVillage} />
+          <CitizenLifelineSchemeStudio village={insightsVillage} defaultPersona="health" />
         </div>
       )}
       {activeDomain === "environment" && (
-        <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
+        <div className="space-y-8">
+          <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
+          <SectorGoodActionsPanel sector="environment" village={insightsVillage} />
+        </div>
       )}
       {activeDomain === "livelihood" && (
-        <LivelihoodVisualPlanPanel lang={lang} village={insightsVillage} />
+        <div className="space-y-8">
+          <LivelihoodVisualPlanPanel lang={lang} village={insightsVillage} />
+          <SectorGoodActionsPanel sector="livelihood" village={insightsVillage} />
+        </div>
       )}
     </div>
   );

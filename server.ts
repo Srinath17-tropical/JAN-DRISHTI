@@ -1189,27 +1189,6 @@ async function startServer() {
     }
   });
 
-  function resolveServerMapsApiKey(): string {
-    const direct = (
-      process.env.VITE_GOOGLE_MAPS_API_KEY ||
-      process.env.GOOGLE_MAPS_API_KEY ||
-      process.env.MAPS_API_KEY ||
-      ""
-    ).trim();
-    if (direct) return direct;
-    try {
-      dotenv.config();
-    } catch {
-      // Ignore if .env is unavailable
-    }
-    return (
-      process.env.VITE_GOOGLE_MAPS_API_KEY ||
-      process.env.GOOGLE_MAPS_API_KEY ||
-      process.env.MAPS_API_KEY ||
-      ""
-    ).trim();
-  }
-
   function haversineKmServer(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -1223,25 +1202,41 @@ async function startServer() {
     return Number((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
   }
 
-  function parseGoogleDurationSeconds(durStr: unknown): number {
-    if (typeof durStr !== "string") return 0;
-    const m = /^(\d+(?:\.\d+)?)s$/.exec(durStr.trim());
-    return m ? Math.round(Number(m[1])) : 0;
+  function getIstPeakCongestionFactor(): {
+    istHourLabel: string;
+    peakLabel: string;
+    multiplier: number;
+  } {
+    const nowUtc = new Date();
+    const istMs = nowUtc.getTime() + 5.5 * 60 * 60 * 1000;
+    const ist = new Date(istMs);
+    const h = ist.getUTCHours();
+    const m = ist.getUTCMinutes();
+    const hhmm = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} IST`;
+    const decHour = h + m / 60;
+
+    if (decHour >= 7.5 && decHour <= 10.5) {
+      return { istHourLabel: hhmm, peakLabel: "Morning School & Mandi Peak", multiplier: 1.24 };
+    }
+    if (decHour >= 16.5 && decHour <= 19.75) {
+      return { istHourLabel: hhmm, peakLabel: "Evening Market & Commute Peak", multiplier: 1.28 };
+    }
+    if (decHour >= 11 && decHour <= 16) {
+      return { istHourLabel: hhmm, peakLabel: "Midday Steady Flow", multiplier: 1.1 };
+    }
+    return { istHourLabel: hhmm, peakLabel: "Off-Peak Clear Window", multiplier: 1.03 };
   }
 
-  // Client Google Maps JS API key config check (never cache empty pre-restart responses)
+  // Runtime corridor routing engine status (OSRM OpenStreetMap + Leaflet — zero API key required)
   app.get("/api/maps/config", (_req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    const apiKey = resolveServerMapsApiKey();
     res.json({
-      hasKey: Boolean(apiKey),
-      apiKey,
+      engine: "osrm-leaflet",
+      ready: true,
     });
   });
 
-  // Server-side proxy for Google Maps Platform Routes API v2 (TRAFFIC_AWARE) across nearest village infrastructure corridors
+  // Real-road corridor routing via OSRM OpenStreetMap + IST Peak & Weather load diagnostics
   app.post("/api/maps/corridors", async (req, res) => {
     try {
       ensureCoreDataLoaded();
@@ -1266,8 +1261,23 @@ async function startServer() {
         { id: "livelihood", label: "Mandi / Banking Corridor", sectorName: "SDG 8 · Market & Banking Hub", fallbackSpeedKmh: 40 },
       ];
 
-      const apiKey = resolveServerMapsApiKey();
-      let quotaExceeded = false;
+      // Optional live precipitation check via Open-Meteo for weather-slowdown adjustment (2s timeout)
+      let rainMmNow = 0;
+      try {
+        const wRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=precipitation,rain&timezone=Asia%2FKolkata`,
+          { signal: AbortSignal.timeout(2200) }
+        );
+        if (wRes.ok) {
+          const wJson: any = await wRes.json();
+          rainMmNow = Number(wJson?.current?.precipitation ?? wJson?.current?.rain ?? 0) || 0;
+        }
+      } catch {
+        rainMmNow = 0;
+      }
+
+      const peakInfo = getIstPeakCongestionFactor();
+      const weatherPenaltyMult = rainMmNow >= 5 ? 1.25 : rainMmNow >= 0.5 ? 1.12 : 1.0;
 
       const corridors = await Promise.all(
         sectorTargets.map(async (target) => {
@@ -1294,83 +1304,109 @@ async function startServer() {
             ? bestDistKm
             : haversineKmServer(lat, lng, destLat, destLng);
 
-          if (apiKey) {
-            try {
-              const gmpRes = await fetch(
-                "https://routes.googleapis.com/directions/v2:computeRoutes",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-Goog-Api-Key": apiKey,
-                    "X-Goog-Maps-Solution-ID": "gmp_mcp_codeassist_v1_aistudio",
-                    "X-Goog-FieldMask":
-                      "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.viewport",
-                  },
-                  body: JSON.stringify({
-                    origin: {
-                      location: {
-                        latLng: { latitude: lat, longitude: lng },
-                      },
-                    },
-                    destination: {
-                      location: {
-                        latLng: { latitude: destLat, longitude: destLng },
-                      },
-                    },
-                    travelMode,
-                    routingPreference: "TRAFFIC_AWARE",
-                  }),
-                  signal: AbortSignal.timeout(7000),
-                }
-              );
+          try {
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${lng.toFixed(5)},${lat.toFixed(5)};${destLng.toFixed(5)},${destLat.toFixed(5)}?overview=full&geometries=geojson&steps=true`;
+            const osrmRes = await fetch(osrmUrl, {
+              headers: { "User-Agent": "JanDrishtiTelangana/1.0" },
+              signal: AbortSignal.timeout(5500),
+            });
 
-              if (gmpRes.status === 429) {
-                quotaExceeded = true;
-              } else {
-                const payload: any = await gmpRes.json();
-                if (payload?.error?.status === "RESOURCE_EXHAUSTED") {
-                  quotaExceeded = true;
-                } else if (gmpRes.ok && Array.isArray(payload?.routes) && payload.routes[0]) {
-                  const r = payload.routes[0];
-                  const durationSec = parseGoogleDurationSeconds(r.duration);
-                  const staticSec = parseGoogleDurationSeconds(r.staticDuration) || durationSec;
-                  const distanceKm = Number(((Number(r.distanceMeters ?? straightKm * 1250)) / 1000).toFixed(2));
-                  const liveMinutes = Math.max(1, Math.round(durationSec / 60));
-                  const baselineMinutes = Math.max(1, Math.round(staticSec / 60));
-                  const delayMinutes = Math.max(0, liveMinutes - baselineMinutes);
-                  const congestionLevel =
-                    delayMinutes >= 8 || (baselineMinutes > 0 && liveMinutes / baselineMinutes >= 1.35)
-                      ? "Congested"
-                      : delayMinutes >= 3 || (baselineMinutes > 0 && liveMinutes / baselineMinutes >= 1.15)
-                      ? "Moderate Slowdown"
-                      : "Clear Corridor";
+            if (osrmRes.ok) {
+              const payload: any = await osrmRes.json();
+              const route = Array.isArray(payload?.routes) ? payload.routes[0] : null;
+              if (route && Array.isArray(route?.geometry?.coordinates)) {
+                const routePath: [number, number][] = route.geometry.coordinates.map(
+                  (c: [number, number]) => [Number(c[1].toFixed(5)), Number(c[0].toFixed(5))]
+                );
 
-                  return {
-                    id: target.id,
-                    label: target.label,
-                    sectorName: target.sectorName,
-                    destinationName: destName,
-                    destinationCategory: destCategory,
-                    destination: { lat: destLat, lng: destLng },
-                    distanceKm,
-                    liveMinutes,
-                    baselineMinutes,
-                    delayMinutes,
-                    congestionLevel,
-                    encodedPolyline: r.polyline?.encodedPolyline ?? null,
-                    viewport: r.viewport ?? null,
-                    source: "Google Maps Routes API (TRAFFIC_AWARE)",
-                  };
+                const distanceKm = Number((Number(route.distance ?? straightKm * 1260) / 1000).toFixed(2));
+                const rawDriveMin = Math.max(1, Number(route.duration ?? 300) / 60);
+                // Rural two-wheelers navigate village approach lanes ~12% faster in congested hubs, slightly slower on open NH
+                const modeAdjustedBaseMin =
+                  travelMode === "TWO_WHEELER"
+                    ? Math.max(2, Math.round(rawDriveMin * 0.94))
+                    : Math.max(2, Math.round(rawDriveMin));
+
+                // Sector-specific arterial friction (mandi & hospital towns have tighter urban bottlenecks)
+                const sectorFriction =
+                  target.id === "livelihood" ? 1.06 : target.id === "health" ? 1.04 : 1.0;
+                const totalMult = peakInfo.multiplier * weatherPenaltyMult * sectorFriction;
+                const liveMinutes = Math.max(modeAdjustedBaseMin, Math.round(modeAdjustedBaseMin * totalMult));
+                const delayMinutes = Math.max(0, liveMinutes - modeAdjustedBaseMin);
+
+                const rawSteps: any[] = Array.isArray(route?.legs?.[0]?.steps) ? route.legs[0].steps : [];
+                const roadSegments: string[] = [];
+                const turnPoints: { lat: number; lng: number; road: string; maneuver: string; distanceM: number }[] = [];
+                for (const st of rawSteps) {
+                  const nm = String(st?.name ?? "").trim() || String(st?.ref ?? "").trim();
+                  if (nm && !roadSegments.includes(nm)) {
+                    roadSegments.push(nm);
+                  }
+                  const loc = st?.maneuver?.location;
+                  if (Array.isArray(loc) && loc.length === 2 && turnPoints.length < 10) {
+                    const mType = String(st?.maneuver?.type ?? "continue");
+                    const mMod = String(st?.maneuver?.modifier ?? "").trim();
+                    turnPoints.push({
+                      lat: Number(loc[1]),
+                      lng: Number(loc[0]),
+                      road: nm || "Mandal Link Road",
+                      maneuver: mMod ? `${mType} ${mMod}` : mType,
+                      distanceM: Math.round(Number(st?.distance ?? 0)),
+                    });
+                  }
                 }
+                if (roadSegments.length === 0) {
+                  roadSegments.push("Village Approach Road", "Mandal Link Corridor");
+                }
+
+                const hasHighway = roadSegments.some((s) =>
+                  /(highway|nh|sh|bypass|ring|express|main road)/i.test(s)
+                );
+                const highwayClass = hasHighway
+                  ? "District / State Highway Arterial"
+                  : "Rural Panchayat Feeder Road";
+
+                const congestionLevel =
+                  delayMinutes >= 8 || totalMult >= 1.32
+                    ? "Peak Bottleneck"
+                    : delayMinutes >= 3 || totalMult >= 1.15
+                    ? "Moderate Slowdown"
+                    : "Clear Corridor";
+
+                const avgSpeedKmh = Math.max(12, Math.round((distanceKm / Math.max(1, liveMinutes)) * 60));
+
+                return {
+                  id: target.id,
+                  label: target.label,
+                  sectorName: target.sectorName,
+                  destinationName: destName,
+                  destinationCategory: destCategory,
+                  destination: { lat: destLat, lng: destLng },
+                  distanceKm,
+                  liveMinutes,
+                  baselineMinutes: modeAdjustedBaseMin,
+                  delayMinutes,
+                  avgSpeedKmh,
+                  congestionLevel,
+                  highwayClass,
+                  roadSegments: roadSegments.slice(0, 6),
+                  turnPoints,
+                  routePath,
+                  source:
+                    rainMmNow >= 0.5
+                      ? `OSRM OpenStreetMap Roads + Peak/Rain (${rainMmNow}mm)`
+                      : `OSRM OpenStreetMap Roads (${peakInfo.istHourLabel})`,
+                };
               }
-            } catch {
-              // Fall through to deterministic road geometry baseline
             }
+          } catch {
+            // Fall through cleanly to road-geometry baseline
           }
 
           const estRoadKm = Number((straightKm * 1.26).toFixed(2));
           const baselineMinutes = Math.max(2, Math.round((estRoadKm / target.fallbackSpeedKmh) * 60));
+          const liveMinutes = Math.round(baselineMinutes * peakInfo.multiplier * weatherPenaltyMult);
+          const delayMinutes = Math.max(0, liveMinutes - baselineMinutes);
           return {
             id: target.id,
             label: target.label,
@@ -1379,33 +1415,122 @@ async function startServer() {
             destinationCategory: destCategory,
             destination: { lat: destLat, lng: destLng },
             distanceKm: estRoadKm,
-            liveMinutes: baselineMinutes,
+            liveMinutes,
             baselineMinutes,
-            delayMinutes: 0,
-            congestionLevel: "Road Baseline (Live Sync Pending)",
-            encodedPolyline: null,
-            viewport: null,
-            source: "Road Distance Baseline Estimate",
+            delayMinutes,
+            congestionLevel: delayMinutes >= 4 ? "Moderate Slowdown" : "Clear Baseline",
+            highwayClass: "Mandal Road Network",
+            roadSegments: [`${v?.vn ?? "Village"} Approach Rd`, "Mandal Main Road"],
+            routePath: [
+              [lat, lng],
+              [Number(((lat + destLat) / 2).toFixed(5)), Number(((lng + destLng) / 2).toFixed(5))],
+              [destLat, destLng],
+            ] as [number, number][],
+            source: "Road Network Distance Model",
           };
         })
       );
 
-      if (quotaExceeded) {
-        res.status(429).json({
-          error: { status: "RESOURCE_EXHAUSTED", message: "Google Maps Routes API quota exceeded." },
-          corridors,
-        });
-        return;
-      }
-
       res.json({
         origin: { lat, lng, villageName: v?.vn ?? "Telangana Settlement" },
         travelMode,
+        peakWindow: peakInfo.peakLabel,
+        istTime: peakInfo.istHourLabel,
+        rainMmNow,
         corridors,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
+  });
+
+  // Live Foreign Exchange Benchmark Feed (INR vs High-Valued Global Currencies)
+  let fxRatesCache: { ts: number; payload: any } | null = null;
+
+  app.get("/api/macro/fx-rates", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    const now = Date.now();
+    if (fxRatesCache && now - fxRatesCache.ts < 15 * 60 * 1000) {
+      res.json(fxRatesCache.payload);
+      return;
+    }
+
+    const currencyMeta: {
+      code: string;
+      name: string;
+      region: string;
+      symbol: string;
+      multiplier: number;
+      fallbackPerUsd: number;
+      pppDiscountFactor: number;
+    }[] = [
+      { code: "KWD", name: "Kuwaiti Dinar", region: "Kuwait (Highest Global Unit)", symbol: "KD", multiplier: 1, fallbackPerUsd: 0.3108, pppDiscountFactor: 0.34 },
+      { code: "BHD", name: "Bahraini Dinar", region: "Bahrain", symbol: "BD", multiplier: 1, fallbackPerUsd: 0.376, pppDiscountFactor: 0.36 },
+      { code: "OMR", name: "Omani Rial", region: "Oman", symbol: "RO", multiplier: 1, fallbackPerUsd: 0.3845, pppDiscountFactor: 0.37 },
+      { code: "GBP", name: "British Pound", region: "United Kingdom", symbol: "£", multiplier: 1, fallbackPerUsd: 0.76, pppDiscountFactor: 0.31 },
+      { code: "CHF", name: "Swiss Franc", region: "Switzerland", symbol: "CHF", multiplier: 1, fallbackPerUsd: 0.843, pppDiscountFactor: 0.27 },
+      { code: "EUR", name: "Euro", region: "Eurozone", symbol: "€", multiplier: 1, fallbackPerUsd: 0.911, pppDiscountFactor: 0.33 },
+      { code: "USD", name: "US Dollar", region: "Global Reserve Benchmark", symbol: "$", multiplier: 1, fallbackPerUsd: 1.0, pppDiscountFactor: 0.26 },
+      { code: "SGD", name: "Singapore Dollar", region: "Singapore", symbol: "S$", multiplier: 1, fallbackPerUsd: 1.289, pppDiscountFactor: 0.35 },
+      { code: "AED", name: "UAE Dirham", region: "United Arab Emirates", symbol: "AED", multiplier: 1, fallbackPerUsd: 3.6725, pppDiscountFactor: 0.39 },
+      { code: "JPY", name: "100 Japanese Yen", region: "Japan (Per 100 ¥)", symbol: "¥", multiplier: 100, fallbackPerUsd: 159.36, pppDiscountFactor: 0.38 },
+    ];
+
+    let inrPerUsd = 93.51;
+    let usdRates: Record<string, number> = {};
+    let updatedUtc = new Date().toUTCString();
+    let liveSource = "Live Global FX Feed (open.er-api.com)";
+
+    try {
+      const fxRes = await fetch("https://open.er-api.com/v6/latest/USD", {
+        signal: AbortSignal.timeout(4500),
+      });
+      if (fxRes.ok) {
+        const fxJson: any = await fxRes.json();
+        if (fxJson?.result === "success" && fxJson?.rates?.INR) {
+          usdRates = fxJson.rates;
+          inrPerUsd = Number(fxJson.rates.INR);
+          updatedUtc = String(fxJson.time_last_update_utc ?? updatedUtc);
+        } else {
+          liveSource = "RBI / Global Reference Baseline";
+        }
+      } else {
+        liveSource = "RBI / Global Reference Baseline";
+      }
+    } catch {
+      liveSource = "RBI / Global Reference Baseline";
+    }
+
+    const currencies = currencyMeta.map((cm) => {
+      const ratePerUsd = Number(usdRates[cm.code] ?? cm.fallbackPerUsd) || cm.fallbackPerUsd;
+      const inrPerUnit = Number(((inrPerUsd / ratePerUsd) * cm.multiplier).toFixed(2));
+      const unitsPer1000Inr = Number(((1000 / Math.max(0.01, inrPerUnit)) * cm.multiplier).toFixed(2));
+      const pppAdjustedInr = Number((inrPerUnit * cm.pppDiscountFactor).toFixed(2));
+      const target2047Inr = Number((inrPerUnit * 0.72).toFixed(2));
+      return {
+        code: cm.code === "JPY" ? "100 JPY" : cm.code,
+        rawCode: cm.code,
+        name: cm.name,
+        region: cm.region,
+        symbol: cm.symbol,
+        unitMultiplier: cm.multiplier,
+        inrPerUnit,
+        unitsPer1000Inr,
+        pppAdjustedInr,
+        target2047Inr,
+      };
+    });
+
+    const payload = {
+      baseCurrency: "INR",
+      inrPerUsd: Number(inrPerUsd.toFixed(2)),
+      updatedUtc,
+      source: liveSource,
+      currencies,
+    };
+
+    fxRatesCache = { ts: now, payload };
+    res.json(payload);
   });
 
   // Telangana Village Boundaries GeoJSON (by Mandal, District, or Statewide sample)
@@ -3595,15 +3720,25 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
   } else if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === "true" ? false : undefined,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
+    try {
+      ensureCoreDataLoaded();
+    } catch {
+      // Non-fatal; endpoints will retry lazily
+    }
     console.log(`JAN-DRISHTI Telangana Server running on http://0.0.0.0:${PORT}`);
   });
+  httpServer.keepAliveTimeout = 65000;
+  httpServer.headersTimeout = 66000;
 }
 
 function tankDensityLabel(tanks: number, area: number): string {

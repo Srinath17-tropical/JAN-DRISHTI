@@ -8,8 +8,8 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
-        'next/dynamic': path.resolve(__dirname, 'src/shims/next-dynamic.tsx'),
+        '@': path.resolve(import.meta.dirname, '.'),
+        'next/dynamic': path.resolve(import.meta.dirname, 'src/shims/next-dynamic.tsx'),
       },
     },
     server: {
