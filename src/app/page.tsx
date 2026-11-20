@@ -89,6 +89,15 @@ import HyperlocalWeatherObservatory from "../components/HyperlocalWeatherObserva
 import MandiMarketObservatory from "../components/MandiMarketObservatory";
 import CitizenLifelineSchemeStudio from "../components/CitizenLifelineSchemeStudio";
 import SectorGoodActionsPanel from "../components/SectorGoodActionsPanel";
+import EnvironmentEarthObservatory from "../components/EnvironmentEarthObservatory";
+import WaterHydrologyObservatory from "../components/WaterHydrologyObservatory";
+import HealthPhysiologyObservatory from "../components/HealthPhysiologyObservatory";
+import EducationStemSkyObservatory from "../components/EducationStemSkyObservatory";
+import LivelihoodValueChainObservatory from "../components/LivelihoodValueChainObservatory";
+import LivelihoodAgroFoodSubPortal from "../components/LivelihoodAgroFoodSubPortal";
+import WaterNationalTelanganaCapacity from "../components/WaterNationalTelanganaCapacity";
+import WaterConservationSubPortal from "../components/WaterConservationSubPortal";
+import YouthHealthPreventionSubPortal from "../components/YouthHealthPreventionSubPortal";
 
 const DevelopmentMap = dynamic(
   () => import("../components/gis/DevelopmentMap"),
@@ -4757,6 +4766,12 @@ function DomainMap({
   const [spatialLayout, setSpatialLayout] = useState<
     "split" | "gis_only" | "satellite_only"
   >("split");
+  const [livelihoodView, setLivelihoodView] = useState<
+    "gis_subportal" | "subportal_full" | "dual_maps"
+  >("gis_subportal");
+  const [livelihoodGisMode, setLivelihoodGisMode] = useState<
+    "vector" | "satellite"
+  >("vector");
 
   const activeDomain = config.shortTitle.toLowerCase() as
     | "overview"
@@ -4789,107 +4804,242 @@ function DomainMap({
         />
 
         {/* Workspace View Switcher */}
-        <div className="flex flex-wrap items-center gap-1 border border-white/15 bg-[#070b12] p-1 self-start lg:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setSpatialLayout("split")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
-              spatialLayout === "split"
-                ? "bg-white/15 text-white"
-                : "text-white/50 hover:text-white/85"
-            }`}
+        {activeDomain === "livelihood" ? (
+          <div className="flex flex-wrap items-center gap-1 border border-white/15 bg-[#070b12] p-1 self-start lg:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setLivelihoodView("gis_subportal")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                livelihoodView === "gis_subportal"
+                  ? "bg-emerald-500/25 text-white border border-emerald-400/40"
+                  : "text-white/55 hover:text-white/85"
+              }`}
+            >
+              <Columns2 size={13} className="text-emerald-300" />
+              <span>GIS + Agro/Food Sub-Portal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLivelihoodView("subportal_full")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                livelihoodView === "subportal_full"
+                  ? "bg-amber-500/25 text-white border border-amber-400/40"
+                  : "text-white/55 hover:text-white/85"
+              }`}
+            >
+              <Globe2 size={13} className="text-amber-300" />
+              <span>Sub-Portal Expanded</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLivelihoodView("dual_maps")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                livelihoodView === "dual_maps"
+                  ? "bg-white/15 text-white"
+                  : "text-white/55 hover:text-white/85"
+              }`}
+            >
+              <Map size={13} className="text-cyan-300" />
+              <span>GIS + Satellite Dual</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1 border border-white/15 bg-[#070b12] p-1 self-start lg:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setSpatialLayout("split")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                spatialLayout === "split"
+                  ? "bg-white/15 text-white"
+                  : "text-white/50 hover:text-white/85"
+              }`}
+            >
+              <Columns2 size={13} className="text-cyan-300" />
+              <span>GIS + Satellite Side-by-Side</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSpatialLayout("gis_only")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                spatialLayout === "gis_only"
+                  ? "bg-white/15 text-white"
+                  : "text-white/50 hover:text-white/85"
+              }`}
+            >
+              <Map size={13} className="text-orange-300" />
+              <span>Vector GIS Full</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSpatialLayout("satellite_only")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
+                spatialLayout === "satellite_only"
+                  ? "bg-white/15 text-white"
+                  : "text-white/50 hover:text-white/85"
+              }`}
+            >
+              <Globe2 size={13} className="text-emerald-300" />
+              <span>Satellite Map Full</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Livelihood Sector: Agro & Food Processing Sub-Portal Beside Livelihood GIS */}
+      {activeDomain === "livelihood" && livelihoodView !== "dual_maps" ? (
+        <div
+          className={`grid gap-5 items-start ${
+            livelihoodView === "gis_subportal"
+              ? "grid-cols-1 xl:grid-cols-12"
+              : "grid-cols-1"
+          }`}
+        >
+          {livelihoodView === "gis_subportal" && (
+            <div className="xl:col-span-5 xl:sticky xl:top-20 flex flex-col border border-white/12 bg-[#060c12] overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#080e17] px-3.5 py-2 text-xs">
+                <span className="font-semibold text-amber-200 truncate">
+                  {livelihoodGisMode === "vector"
+                    ? "01 · Livelihood Vector GIS"
+                    : "02 · Livelihood Satellite Map"}
+                </span>
+                <div className="flex items-center gap-1 bg-black/40 p-0.5 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setLivelihoodGisMode("vector")}
+                    className={`px-2 py-1 text-[11px] font-medium transition ${
+                      livelihoodGisMode === "vector"
+                        ? "bg-amber-500/25 text-amber-200"
+                        : "text-white/55 hover:text-white"
+                    }`}
+                  >
+                    Vector GIS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLivelihoodGisMode("satellite")}
+                    className={`px-2 py-1 text-[11px] font-medium transition ${
+                      livelihoodGisMode === "satellite"
+                        ? "bg-cyan-500/25 text-cyan-200"
+                        : "text-white/55 hover:text-white"
+                    }`}
+                  >
+                    Satellite
+                  </button>
+                </div>
+              </div>
+              <div className="h-[560px] min-h-[440px]">
+                {livelihoodGisMode === "vector" ? (
+                  <DevelopmentMap
+                    activeDomain={activeDomain}
+                    selectedLayer={selectedLayer}
+                    selectedVillageCode={selectedVillage?.profile.village_code ?? null}
+                    selectedVillageGeometry={selectedVillage?.gis.geometry}
+                    selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
+                    onVillageSelect={(village: { village_code?: string | number }) => {
+                      if (village.village_code !== undefined) {
+                        onSelectVillage(String(village.village_code));
+                      }
+                    }}
+                  />
+                ) : (
+                  <SatelliteMap
+                    activeDomain={activeDomain}
+                    selectedVillageCode={selectedVillage?.profile.village_code ?? null}
+                    selectedVillageName={selectedVillage?.profile.village_name ?? null}
+                    selectedVillageGeometry={selectedVillage?.gis.geometry}
+                    selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
+                    villageAreaSqKm={selectedVillage?.gis.area_sq_km}
+                    onVillageSelect={(village: { village_code?: string | number }) => {
+                      if (village.village_code !== undefined) {
+                        onSelectVillage(String(village.village_code));
+                      }
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          <div
+            className={
+              livelihoodView === "gis_subportal" ? "xl:col-span-7" : "col-span-1"
+            }
           >
-            <Columns2 size={13} className="text-cyan-300" />
-            <span>GIS + Satellite Side-by-Side</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSpatialLayout("gis_only")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
-              spatialLayout === "gis_only"
-                ? "bg-white/15 text-white"
-                : "text-white/50 hover:text-white/85"
-            }`}
-          >
-            <Map size={13} className="text-orange-300" />
-            <span>Vector GIS Full</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSpatialLayout("satellite_only")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition whitespace-nowrap ${
-              spatialLayout === "satellite_only"
-                ? "bg-white/15 text-white"
-                : "text-white/50 hover:text-white/85"
-            }`}
-          >
-            <Globe2 size={13} className="text-emerald-300" />
-            <span>Satellite Map Full</span>
-          </button>
+            <LivelihoodAgroFoodSubPortal
+              village={insightsVillage}
+              groundwater={stateInsights?.groundwater_by_district ?? []}
+              isExpanded={livelihoodView === "subportal_full"}
+              onToggleExpand={() =>
+                setLivelihoodView((prev) =>
+                  prev === "subportal_full" ? "gis_subportal" : "subportal_full"
+                )
+              }
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Side-by-Side Vector GIS + Separate Satellite Map */
+        <div
+          className={`grid gap-5 ${
+            spatialLayout === "split" ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          {(spatialLayout === "split" || spatialLayout === "gis_only") && (
+            <div className="flex flex-col border border-white/12 bg-[#060c12] overflow-hidden">
+              <div className="flex items-center justify-between border-b border-white/10 bg-[#080e17] px-4 py-2 text-xs">
+                <span className="font-semibold text-orange-200">
+                  01 · {config.shortTitle} Vector Choropleth GIS
+                </span>
+                <span className="font-mono text-[10px] text-white/45">
+                  444 Mandals · Village Polygons
+                </span>
+              </div>
+              <div className="h-[540px] min-h-[440px]">
+                <DevelopmentMap
+                  activeDomain={activeDomain}
+                  selectedLayer={selectedLayer}
+                  selectedVillageCode={selectedVillage?.profile.village_code ?? null}
+                  selectedVillageGeometry={selectedVillage?.gis.geometry}
+                  selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
+                  onVillageSelect={(village: { village_code?: string | number }) => {
+                    if (village.village_code !== undefined) {
+                      onSelectVillage(String(village.village_code));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
-      {/* Side-by-Side Vector GIS + Separate Satellite Map */}
-      <div
-        className={`grid gap-5 ${
-          spatialLayout === "split" ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        {(spatialLayout === "split" || spatialLayout === "gis_only") && (
-          <div className="flex flex-col border border-white/12 bg-[#060c12] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-white/10 bg-[#080e17] px-4 py-2 text-xs">
-              <span className="font-semibold text-orange-200">
-                01 · {config.shortTitle} Vector Choropleth GIS
-              </span>
-              <span className="font-mono text-[10px] text-white/45">
-                444 Mandals · Village Polygons
-              </span>
+          {(spatialLayout === "split" || spatialLayout === "satellite_only") && (
+            <div className="flex flex-col border border-cyan-400/25 bg-[#04080e] overflow-hidden">
+              <div className="flex items-center justify-between border-b border-white/10 bg-[#071019] px-4 py-2 text-xs">
+                <span className="font-semibold text-cyan-200">
+                  02 · {config.shortTitle} Satellite &amp; Hybrid Terrain Map
+                </span>
+                <span className="font-mono text-[10px] text-white/45">
+                  Synced Settlement Footprint
+                </span>
+              </div>
+              <div className="h-[540px] min-h-[440px]">
+                <SatelliteMap
+                  activeDomain={activeDomain}
+                  selectedVillageCode={selectedVillage?.profile.village_code ?? null}
+                  selectedVillageName={selectedVillage?.profile.village_name ?? null}
+                  selectedVillageGeometry={selectedVillage?.gis.geometry}
+                  selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
+                  villageAreaSqKm={selectedVillage?.gis.area_sq_km}
+                  onVillageSelect={(village: { village_code?: string | number }) => {
+                    if (village.village_code !== undefined) {
+                      onSelectVillage(String(village.village_code));
+                    }
+                  }}
+                />
+              </div>
             </div>
-            <div className="h-[540px] min-h-[440px]">
-              <DevelopmentMap
-                activeDomain={activeDomain}
-                selectedLayer={selectedLayer}
-                selectedVillageCode={selectedVillage?.profile.village_code ?? null}
-                selectedVillageGeometry={selectedVillage?.gis.geometry}
-                selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
-                onVillageSelect={(village: { village_code?: string | number }) => {
-                  if (village.village_code !== undefined) {
-                    onSelectVillage(String(village.village_code));
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {(spatialLayout === "split" || spatialLayout === "satellite_only") && (
-          <div className="flex flex-col border border-cyan-400/25 bg-[#04080e] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-white/10 bg-[#071019] px-4 py-2 text-xs">
-              <span className="font-semibold text-cyan-200">
-                02 · {config.shortTitle} Satellite &amp; Hybrid Terrain Map
-              </span>
-              <span className="font-mono text-[10px] text-white/45">
-                Synced Settlement Footprint
-              </span>
-            </div>
-            <div className="h-[540px] min-h-[440px]">
-              <SatelliteMap
-                activeDomain={activeDomain}
-                selectedVillageCode={selectedVillage?.profile.village_code ?? null}
-                selectedVillageName={selectedVillage?.profile.village_name ?? null}
-                selectedVillageGeometry={selectedVillage?.gis.geometry}
-                selectedMandalCode={selectedVillage?.gis.mandal_code ?? null}
-                villageAreaSqKm={selectedVillage?.gis.area_sq_km}
-                onVillageSelect={(village: { village_code?: string | number }) => {
-                  if (village.village_code !== undefined) {
-                    onSelectVillage(String(village.village_code));
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {selectedVillage && (
         <GISContextStrip
@@ -4911,26 +5061,38 @@ function DomainMap({
       {activeDomain === "education" && (
         <div className="space-y-8">
           <EducationInstitutionsPanel lang={lang} village={insightsVillage} />
+          <EducationStemSkyObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="education" village={insightsVillage} />
         </div>
       )}
       {activeDomain === "water" && (
         <div className="space-y-8">
+          <WaterNationalTelanganaCapacity />
+          <WaterConservationSubPortal
+            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Settlement"}
+            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+          />
           <WaterGroundwaterPanel
             lang={lang}
             village={insightsVillage}
             groundwater={stateInsights?.groundwater_by_district ?? []}
           />
+          <WaterHydrologyObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="water" village={insightsVillage} />
         </div>
       )}
       {activeDomain === "health" && (
         <div className="space-y-8">
+          <YouthHealthPreventionSubPortal
+            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Ward / Campus Cluster"}
+            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+          />
           <HealthcareServiceMatrixPanel
             lang={lang}
             village={insightsVillage}
             healthcareTiers={stateInsights?.healthcare_tiers ?? []}
           />
+          <HealthPhysiologyObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="health" village={insightsVillage} />
           <CitizenLifelineSchemeStudio village={insightsVillage} defaultPersona="health" />
         </div>
@@ -4938,12 +5100,14 @@ function DomainMap({
       {activeDomain === "environment" && (
         <div className="space-y-8">
           <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
+          <EnvironmentEarthObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="environment" village={insightsVillage} />
         </div>
       )}
       {activeDomain === "livelihood" && (
         <div className="space-y-8">
           <LivelihoodVisualPlanPanel lang={lang} village={insightsVillage} />
+          <LivelihoodValueChainObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="livelihood" village={insightsVillage} />
         </div>
       )}
