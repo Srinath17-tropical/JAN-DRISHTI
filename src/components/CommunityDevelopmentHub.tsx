@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import LiveCameraCapture from "./LiveCameraCapture";
 import IndiaMapTransitionBackdrop from "./IndiaMapTransitionBackdrop";
+import ParticipatoryVisualObservatory from "./ParticipatoryVisualObservatory";
 import {
   analyzeComplaintSolution,
   AREA_SABHA_GUIDE_STEPS,
@@ -1024,6 +1025,21 @@ export default function CommunityDevelopmentHub({
       </header>
 
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-8 space-y-8">
+        <ParticipatoryVisualObservatory
+          villageName={activeVillageName}
+          issues={state.issues}
+          budgetProposals={state.budgetProposals}
+          wardLeaders={state.wardLeaders}
+          budgetEnvelopeLakhs={WARD_BUDGET_ENVELOPE_LAKHS}
+          drives={state.drives}
+          wishlists={state.wishlists}
+          obligations={state.obligations}
+          champions={state.champions}
+          saplingsCount={state.saplings.length}
+          certificatesCount={state.certificates.length}
+          sabhaAttendeesCount={upcomingSabha?.attendeeCount ?? 0}
+        />
+
         {/* =========================================================
             STRAND 1: CITIZEN ENGAGEMENT (MY VILLAGE/WARD, MY BUDGET + AREA SABHAS)
         ========================================================= */}

@@ -27,11 +27,14 @@ function getGeminiClient(): GoogleGenAI | null {
   return new GoogleGenAI({
     apiKey: key,
     httpOptions: {
-      timeout: 25000,
+      timeout: 12000,
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
       retryOptions: {
-        attempts: 2,
-        initialDelay: 0.6,
-        maxDelay: 1.5,
+        attempts: 1,
+        initialDelay: 0.35,
+        maxDelay: 1.0,
       },
     },
   });
@@ -2110,49 +2113,76 @@ async function startServer() {
     }
   });
 
-  // LLM Development Intelligence & Village Policy Formulation Engine
-  app.post("/api/ai/agent", async (req, res) => {
-    try {
-      ensureCoreDataLoaded();
-      const { query, village_code } = req.body ?? {};
-      if (!village_code) {
-        res.status(400).json({
-          error: "A Telangana village_code is required to run village-specific intelligence.",
-        });
-        return;
-      }
+  const AGENT_CACHE_TTL_MS = 15 * 60 * 1000;
+  const agentResultCache = new Map<string, { expiresAt: number; payload: unknown }>();
 
-      const v = villagesByCode?.get(String(village_code).trim());
-      if (!v) {
-        res.status(404).json({
-          error: `Village code ${village_code} was not found in the Telangana village registry.`,
-        });
-        return;
-      }
+  function getCachedAgentResult(cacheKey: string): unknown | null {
+    const entry = agentResultCache.get(cacheKey);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      agentResultCache.delete(cacheKey);
+      return null;
+    }
+    return entry.payload;
+  }
 
-      const full = buildFullVillageResponse(v);
-      const sec = full.sectors;
-      const bench = full.benchmarks;
+  function setCachedAgentResult(cacheKey: string, payload: unknown) {
+    if (agentResultCache.size >= 200) {
+      const oldestKey = agentResultCache.keys().next().value;
+      if (oldestKey) agentResultCache.delete(oldestKey);
+    }
+    agentResultCache.set(cacheKey, {
+      expiresAt: Date.now() + AGENT_CACHE_TTL_MS,
+      payload,
+    });
+  }
 
-      const ai = getGeminiClient();
+  function getSectorDomainPlaybook(sectorRaw?: string): string {
+    const sector = String(sectorRaw || "overview").toLowerCase();
+    if (sector.includes("educat")) {
+      return `PRIMARY SECTOR FOCUS — EDUCATION (SDG 04): Emphasize female literacy parity, Anganwadi (0–6) foundational transition, Mana Ooru – Mana Badi school WASH & smart boards, T-SAT Vidya live digital coaching, TS ePASS scholarships, and Telangana Academy for Skill and Knowledge (TASK) career readiness across school corridors.`;
+    }
+    if (sector.includes("health")) {
+      return `PRIMARY SECTOR FOCUS — HEALTH, SANITATION & YOUTH MORTALITY PREVENTION (SDG 03): Address both Census sanitation/ODF-Plus & solid biomass indoor smoke PM2.5 exposure AND Telangana's urgent youth health threats: (1) Student mental health & suicide prevention (Tele-MANAS 14416, school peer gatekeepers, 3-tier counseling), (2) Early adult Cardiovascular/hypertension screening at Palle Dawakhana, and (3) Low-GI millet & metabolic Diabetes prevention alongside safe childbirth/vector drainage.`;
+    }
+    if (sector.includes("water")) {
+      return `PRIMARY SECTOR FOCUS — WATER SECURITY & CONSERVATION HYDROLOGY (SDG 06): Contrast India (~1,999 BCM natural / 1,126 BCM utilizable) and Telangana Krishna/Godavari reservoir & Mission Kakatiya tank storage against Census tap access & groundwater over-extraction. Highlight zero pipe leakage audits, strict per-capita water budgeting (55 LPCD rural / 135 LPCD urban baseline), and closed-loop 10–15 floor Apartment Rooftop Rainwater Harvesting + Greywater Recycling architectures where rainwater & treated greywater recharge depleted aquifers.`;
+    }
+    if (sector.includes("livelihood")) {
+      return `PRIMARY SECTOR FOCUS — LIVELIHOODS, 2× FARMER INCOME & FOOD PROCESSING (SDG 08): Combine Rural Farmer Climate-Smart Agriculture (soil profile, crop water balance, micro-irrigation, agroforestry bunds, and Deccan/Adilabad-style microclimate high-value crop replication to double farmers' income) with India's Sunrise Food Processing Sector (8.9% manufacturing GVA, #1 global livestock population, #2 global fruits & vegetables, PMFME 35% credit-linked subsidy for SERP Stree Nidhi women SHGs, cold-chain value addition ~3.8× farmgate multiplier, and Rythu Vedika hubs).`;
+    }
+    if (sector.includes("env")) {
+      return `PRIMARY SECTOR FOCUS — ENVIRONMENT, CLEAN ENERGY & CLIMATE RESILIENCE (SDG 13): Target Open-Meteo ambient heat stress, US AQI / PM2.5 particulate load, 7-day rain deficit/runoff risk, high Deccan solar radiation (MJ/m²/day), biomass cooking replacement (PM Ujjwala / biogas), PM-KUSUM solar agricultural feeders, and Telangana Ku Haritha Haram micro-forest canopy corridors.`;
+    }
+    return `PRIMARY SECTOR FOCUS — INTEGRATED 5-SECTOR VILLAGE TRANSFORMATION: Connect Education, Health (including youth mental & metabolic health), Water (tanks + tap security + greywater conservation), Livelihood (2× farm income + PMFME food processing + SHG banking), and Environment (solar + clean fuel + climate resilience) into one unified convergence strategy.`;
+  }
 
-      const systemInstruction = `You are the JAN-DRISHTI Development Intelligence & Policy Formulation Engine for Telangana State, India.
-Your mandate is to generate rigorous, non-fabricated, spatially grounded multi-sector development analysis and village-specific policy formulations across ALL 5 sectors:
-1. Education (SDG 04)
-2. Health & Sanitation (SDG 03)
-3. Water & Minor Irrigation (SDG 06)
-4. Livelihood, Banking & Workforce (SDG 08)
-5. Environment, Clean Energy & Climate Action (SDG 13)
+  function buildEvidencePromptForVillage(
+    v: CompactVillage,
+    full: ReturnType<typeof buildFullVillageResponse>,
+    opts: { query?: string; sector?: string; persona?: string; horizon?: string }
+  ): { systemInstruction: string; evidencePrompt: string } {
+    const sec = full.sectors;
+    const bench = full.benchmarks;
+    const persona = String(opts.persona || "District Collector & Gram Sabha");
+    const horizon = String(opts.horizon || "Multi-Horizon (90-Day / 1-Year / 2047)");
+    const sectorContext = getSectorDomainPlaybook(opts.sector);
 
+    const systemInstruction = `You are the JAN-DRISHTI Telangana Spatial & Sectoral Intelligence Engine.
+${sectorContext}
+TARGET DECISION PERSONA: ${persona}. Tailor tone, actionable authority, and institutional steps specifically for ${persona}.
+PLANNING HORIZON EMPHASIS: ${horizon}.
 CRITICAL EVIDENCE RULES:
-- Cite ONLY the exact numbers provided in the Telangana Village Evidence Dossier (Census 2011 HLPCA Mandal indicators, Census 2011 PCA District Rural/Urban baseline, TRACGIS Village Minor Irrigation Tank inventory & polygon area, OpenStreetMap geolocated facility distances, and Open-Meteo District climate/solar/AQI telemetry).
-- Compare the village's metrics directly against its Mandal (${v.mn}), District (${v.dn}), and Telangana State benchmarks.
-- Formulate concrete, tailored policy options referencing authentic Telangana State & Central Government programmes where relevant (e.g., Mission Bhagiratha for safe drinking water, Mission Kakatiya for minor irrigation tank restoration, Palle Dawakhana / Aarogyasri / Ayushman Arogya Mandir for primary health, Mana Ooru - Mana Badi & Samagra Shiksha for schools, Rythu Bharosa / Rythu Vedika / SERP Stree Nidhi SHGs / MGNREGA for livelihoods, Telangana Ku Haritha Haram / PM-KUSUM solar pumps / Pradhan Mantri Ujjwala clean cooking / SBM-G Phase II greywater & ODF Plus).
-- NEVER claim automatic scheme eligibility, sanctioned funds, or administrative approval; frame scheme references as candidate programmes for Gram Sabha, MPDO, and District Collectorate verification.
-- Ensure budget_priority_mix contains exactly 5 items (Education, Health, Water, Livelihood, Environment) whose allocation_percent values sum to 100, weighted proportionately to the village's biggest observed gaps.`;
+- Cite ONLY exact numbers from the Telangana Village Evidence Dossier (Census 2011 HLPCA Mandal indicators, Census 2011 PCA district baseline, TRACGIS Village Tank inventory, OpenStreetMap distances, Open-Meteo District climate telemetry).
+- Compare village metrics directly against Mandal (${v.mn}), District (${v.dn}), and Telangana State averages.
+- Reference authentic Telangana & Central programmes (Mission Bhagiratha, Mission Kakatiya, Palle Dawakhana, Aarogyasri, Tele-MANAS 14416, Mana Ooru – Mana Badi, Rythu Bharosa, PMFME, SERP Stree Nidhi SHGs, MGNREGA, Haritha Haram, PM-KUSUM, PM Ujjwala, SBM-G ODF Plus) strictly as candidate convergence options requiring Gram Sabha, MPDO, and Collectorate verification. Never claim automatic eligibility or sanctioned budgets.
+- Be crisp, high-signal, punchy, and non-repetitive so executive teams can act immediately.
+- For JSON schema responses: budget_priority_mix must have 5 items (Education, Health, Water, Livelihood, Environment) summing to 100.`;
 
-      const evidencePrompt = `USER PLANNING QUERY:
-${String(query || "Prepare a comprehensive 5-sector development intelligence review and village-specific policy formulation.")}
+    const evidencePrompt = `USER PLANNING QUERY:
+${String(opts.query || "Prepare a comprehensive 5-sector development intelligence review and village-specific policy formulation.")}
+
+TARGET SECTOR: ${String(opts.sector || "overview").toUpperCase()} | PERSONA: ${persona} | HORIZON: ${horizon}
 
 TELANGANA VILLAGE EVIDENCE DOSSIER:
 - Village: ${v.vn} (Code: ${v.vc}), Mandal: ${v.mn} (${v.mc}), District: ${v.dn} (${v.dc}), State: Telangana
@@ -2188,6 +2218,186 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
 - Clean Energy vs Biomass: Electricity lighting ${sec.environment.electricity_lighting_pct}%, Solar lighting ${sec.environment.solar_lighting_pct}%, Kerosene ${sec.environment.kerosene_lighting_pct}%, Solid biomass cooking pressure ${sec.environment.solid_biomass_fuel_pct}%
 - Open-Meteo Live District Telemetry (${v.dn}): Current Temp ${sec.environment.current_temp_c}°C (Forecast Max ${sec.environment.forecast_max_temp_c}°C), 7-Day Forecast Rain ${sec.environment.forecast_7d_rain_mm} mm, Shortwave Solar Potential ${sec.environment.avg_solar_radiation_mj_m2} MJ/m²/day, Ambient PM2.5 ${sec.environment.pm2_5} µg/m³ (US AQI ${sec.environment.us_aqi})
 - Spatial Ecological/Solar Assets (OSM GIS): Nearest mapped forest/reserve/solar asset "${sec.environment.nearest_env_name}" at ${sec.environment.nearest_env_km} km.`;
+
+    return { systemInstruction, evidencePrompt };
+  }
+
+  // Real-time Server-Sent Events (SSE) Streaming Endpoint for Sub-Second First-Token AI Briefs
+  app.post("/api/ai/stream", async (req, res) => {
+    try {
+      ensureCoreDataLoaded();
+      const { query, village_code, sector, persona, horizon, simulationContext } = req.body ?? {};
+      if (!village_code) {
+        res.status(400).json({ error: "A Telangana village_code is required to stream intelligence." });
+        return;
+      }
+      const v = villagesByCode?.get(String(village_code).trim());
+      if (!v) {
+        res.status(404).json({ error: `Village code ${village_code} was not found.` });
+        return;
+      }
+
+      const ai = getGeminiClient();
+      if (!ai) {
+        res.status(503).json({
+          error:
+            "Gemini API key is not configured on the server. Add GEMINI_API_KEY in Settings > Secrets to enable live streaming intelligence.",
+        });
+        return;
+      }
+
+      const full = buildFullVillageResponse(v);
+      const { systemInstruction, evidencePrompt } = buildEvidencePromptForVillage(v, full, {
+        query,
+        sector,
+        persona,
+        horizon,
+      });
+
+      const simNote = simulationContext
+        ? `\n\nACTIVE WHAT-IF SIMULATION PARAMETERS:\n${String(simulationContext)}`
+        : "";
+
+      const streamPrompt = `${evidencePrompt}${simNote}
+
+RESPONSE FORMAT (Structured Decision Brief for immediate executive reading — concise, vivid, data-grounded, under 420 words):
+1. HEADLINE VERDICT: One crisp, arresting diagnosis of ${v.vn}'s ${String(sector || "multi-sector")} standing vs Mandal/State benchmarks.
+2. ROOT-CAUSE EVIDENCE TRIANGULATION: 3 sharp bullet points linking exact observed metrics (%, km, tanks, PM2.5/solar) to ground bottlenecks.
+3. HIGH-MULTIPLIER ACTION BLUEPRINT (${String(persona || "Collectorate")} · ${String(horizon || "1-Year Convergence")}): 3 concrete actions with candidate Telangana/Central schemes & verification protocol.
+4. PROJECTED OUTCOME & FIELD CHECK: Expected measurable KPI shift + the #1 missing local audit needed before capital release.`;
+
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+
+      const sendSse = (event: string, data: unknown) => {
+        if (!res.writableEnded) {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        }
+      };
+
+      const startMs = Date.now();
+      sendSse("meta", {
+        village_code: v.vc,
+        village_name: v.vn,
+        mandal_name: v.mn,
+        district_name: v.dn,
+        overall_score: v.ovr_s,
+        vvi: v.vvi,
+        sector: sector || "overview",
+        persona: persona || "District Collector",
+        horizon: horizon || "1-Year Convergence",
+      });
+
+      const candidateStreamModels = ["gemini-3.1-flash-lite", "gemini-4-hydrogen"];
+      let streamed = false;
+      let lastErr: unknown = null;
+
+      for (const modelName of candidateStreamModels) {
+        if (res.writableEnded) break;
+        try {
+          const responseStream = await ai.models.generateContentStream({
+            model: modelName,
+            contents: streamPrompt,
+            config: {
+              systemInstruction,
+              thinkingConfig: {
+                thinkingLevel:
+                  modelName === "gemini-3.1-flash-lite"
+                    ? ThinkingLevel.MINIMAL
+                    : ThinkingLevel.LOW,
+              },
+            },
+          });
+
+          for await (const chunk of responseStream) {
+            if (res.writableEnded) break;
+            const txt = chunk.text;
+            if (txt) {
+              sendSse("chunk", { text: txt, model: modelName });
+            }
+          }
+          streamed = true;
+          sendSse("done", {
+            model: modelName,
+            latency_ms: Date.now() - startMs,
+          });
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          const msg = String(err?.message ?? err ?? "");
+          const status = Number(err?.status ?? 0);
+          if (status === 401 || status === 403 || msg.includes("API_KEY_INVALID")) {
+            sendSse("error", {
+              error:
+                "Gemini API key rejected or unauthorized (401/403). Please verify GEMINI_API_KEY in Settings > Secrets.",
+            });
+            res.end();
+            return;
+          }
+          console.warn(`[JAN-DRISHTI Stream] ${modelName} error (${status}): ${msg.slice(0, 120)}`);
+        }
+      }
+
+      if (!streamed && !res.writableEnded) {
+        const msg = String((lastErr as any)?.message ?? lastErr ?? "Stream failed");
+        sendSse("error", { error: `Upstream Gemini stream unavailable: ${msg}` });
+      }
+      if (!res.writableEnded) {
+        res.end();
+      }
+    } catch (err) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      } else if (!res.writableEnded) {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`);
+        res.end();
+      }
+    }
+  });
+
+  // LLM Development Intelligence & Village Policy Formulation Engine
+  app.post("/api/ai/agent", async (req, res) => {
+    try {
+      ensureCoreDataLoaded();
+      const { query, village_code, sector, persona, horizon } = req.body ?? {};
+      if (!village_code) {
+        res.status(400).json({
+          error: "A Telangana village_code is required to run village-specific intelligence.",
+        });
+        return;
+      }
+
+      const v = villagesByCode?.get(String(village_code).trim());
+      if (!v) {
+        res.status(404).json({
+          error: `Village code ${village_code} was not found in the Telangana village registry.`,
+        });
+        return;
+      }
+
+      const normalizedQuery = String(query || "").trim().slice(0, 500);
+      const cacheKey = `${v.vc}::${String(sector || "overview").toLowerCase()}::${String(persona || "collector").toLowerCase()}::${String(horizon || "1y").toLowerCase()}::${normalizedQuery}`;
+      const cached = getCachedAgentResult(cacheKey);
+      if (cached) {
+        res.setHeader("X-JAN-DRISHTI-Cache", "HIT");
+        res.json(cached);
+        return;
+      }
+      res.setHeader("X-JAN-DRISHTI-Cache", "MISS");
+
+      const full = buildFullVillageResponse(v);
+      const sec = full.sectors;
+      const bench = full.benchmarks;
+
+      const ai = getGeminiClient();
+      const { systemInstruction, evidencePrompt } = buildEvidencePromptForVillage(v, full, {
+        query,
+        sector,
+        persona,
+        horizon,
+      });
 
       const llm = await generateVillageIntelligence(
         ai,
@@ -2413,7 +2623,7 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
         nearest_market_bank: `${v.liv_nm} (${v.liv_km} km)`,
       };
 
-      res.json({
+      const finalAgentPayload = {
         village_code: v.vc,
         outputs: {
           analysis: {
@@ -2462,7 +2672,10 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
           sdg_alignment: sdgPayload,
           risk_prediction: riskPayload,
         },
-      });
+      };
+
+      setCachedAgentResult(cacheKey, finalAgentPayload);
+      res.json(finalAgentPayload);
     } catch (err) {
       console.error("AI Engine Error:", err);
       res.status(500).json({
@@ -3968,20 +4181,6 @@ SECTOR 5 — ENVIRONMENT, CLEAN ENERGY & CLIMATE (SDG 13):
     res.json({ module: mod, state });
   });
 
-  // Serve generated pitch deck as a forced .pptx attachment so browsers download instead of rendering raw binary
-  app.get("/JAN-DRISHTI_VBYLD_IITH_Pitch.pptx", (_req, res) => {
-    const pptPath = path.join(process.cwd(), "public", "JAN-DRISHTI_VBYLD_IITH_Pitch.pptx");
-    if (!fs.existsSync(pptPath)) {
-      res.status(404).send("Presentation file not found");
-      return;
-    }
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    );
-    res.download(pptPath, "JAN-DRISHTI_VBYLD_IITH_Pitch.pptx");
-  });
-
   // Return JSON 404 for unknown /api/* routes instead of SPA HTML
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API endpoint not found" });
@@ -4051,11 +4250,10 @@ async function generateVillageIntelligence(
     return buildDeterministicTelanganaSynthesis(v, full, userQuery);
   }
 
-  // Ordered cascade of Gemini models for fast, schema-locked JSON policy synthesis
+  // Ordered cascade of valid ultra-fast active Gemini models from SKILL.md (no deprecated temperature param)
   const candidateModels = [
     "gemini-3.1-flash-lite",
-    "gemini-3.8-flash",
-    "gemini-flash-latest",
+    "gemini-4-hydrogen",
   ];
 
   let lastError: unknown = null;
@@ -4064,10 +4262,9 @@ async function generateVillageIntelligence(
     try {
       const llmResponse = await ai.models.generateContent({
         model: modelName,
-        contents: evidencePrompt,
+        contents: `${evidencePrompt}\n\nKeep each array to 4 concise high-impact items (1–2 crisp sentences each) so JSON synthesis stays rapid and authoritative.`,
         config: {
           systemInstruction,
-          temperature: 0.35,
           thinkingConfig: {
             thinkingLevel:
               modelName === "gemini-3.1-flash-lite"

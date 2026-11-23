@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Award,
   BookOpen,
   GraduationCap,
+  Laptop,
   RefreshCw,
-  Satellite,
   ShieldAlert,
 } from "lucide-react";
 import {
@@ -17,21 +18,8 @@ import {
 } from "recharts";
 import type { SectorInsightsVillage } from "./SectorActionModules";
 
-type IssTelemetry = {
-  source: string;
-  latitude: number;
-  longitude: number;
-  altitudeKm: number;
-  velocityKmh: number;
-  visibility: string;
-  footprintKm: number;
-  solarLat: number;
-  solarLon: number;
-  timestampIso: string;
-};
-
-type SunTelemetry = {
-  current?: { solarRadiationWm2?: number };
+type WeatherTelemetry = {
+  current?: { tempC?: number; solarRadiationWm2?: number };
   agroHydro?: { sunriseIso?: string; sunsetIso?: string };
 };
 
@@ -40,7 +28,7 @@ const EDUCATION_THREATS = [
     name: "Adolescent Girls' Transport & WASH Dropout Trap",
     cause: "Long unsafe walks past Class 8 + missing separate functional toilets & sanitation.",
     consequence: "Sharp female literacy drop-off between ages 13 and 17 despite strong primary scores.",
-    action: "Free RTC student transit pass + clean school WASH blocks + girl-STEM role-model circles.",
+    action: "Free TGRTC student transit pass + clean school WASH blocks + girl-STEM role-model circles.",
   },
   {
     name: "Digital Divide & Cyber / UPI Scam Vulnerability",
@@ -58,7 +46,7 @@ const EDUCATION_THREATS = [
     name: "Seasonal Agricultural Migration Disruption",
     cause: "Children travel away for 2–3 months during peak cotton/harvest seasons.",
     consequence: "Broken exam continuity and early shift into low-paid informal manual labor.",
-    action: "Seasonal bridge-learning booklets + ePASS hostel/scholarship continuity tracking.",
+    action: "Seasonal bridge-learning booklets + TS ePASS hostel/scholarship continuity tracking.",
   },
 ];
 
@@ -69,35 +57,37 @@ function getLatLon(village: SectorInsightsVillage | null): [number, number] {
   return [17.385, 78.4867];
 }
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
-
 /* =========================================================
-   LIVE ISS ORBITAL TRACKER & EARTH DAY/NIGHT TERMINATOR CANVAS
+   TELANGANA STUDENT LIFECYCLE & DIGITAL READINESS CANVAS
 ========================================================= */
-function StemSkyTrackerCanvas({
-  iss,
-  villageLat,
-  villageLon,
+function StudentPipelineCanvas({
   villageName,
+  literacyRate,
+  femaleLiteracyRate,
+  mobileCoveragePct,
+  nearestSchoolKm,
 }: {
-  iss: IssTelemetry | null;
-  villageLat: number;
-  villageLon: number;
   villageName: string;
+  literacyRate: number;
+  femaleLiteracyRate: number;
+  mobileCoveragePct: number;
+  nearestSchoolKm: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const ref = useRef({ iss, villageLat, villageLon, villageName });
-  ref.current = { iss, villageLat, villageLon, villageName };
+  const dataRef = useRef({
+    villageName,
+    literacyRate,
+    femaleLiteracyRate,
+    mobileCoveragePct,
+    nearestSchoolKm,
+  });
+  dataRef.current = {
+    villageName,
+    literacyRate,
+    femaleLiteracyRate,
+    mobileCoveragePct,
+    nearestSchoolKm,
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,149 +102,151 @@ function StemSkyTrackerCanvas({
     let rafId = 0;
     let tick = 0;
 
-    const lonToX = (lon: number, w: number) => ((lon + 180) / 360) * w;
-    const latToY = (lat: number, h: number) => ((90 - lat) / 180) * h;
-
     const draw = () => {
       tick += prefersReduced ? 0 : 1;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const rect = canvas.getBoundingClientRect();
       const w = Math.max(320, rect.width);
-      const h = Math.max(290, rect.height);
+      const h = Math.max(270, rect.height);
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
         canvas.width = Math.round(w * dpr);
         canvas.height = Math.round(h * dpr);
       }
 
-      const { iss: curIss, villageLat: vLat, villageLon: vLon, villageName: vName } = ref.current;
-      const issLat = curIss?.latitude ?? 15.2;
-      const issLon = curIss?.longitude ?? 74.8;
-      const solLat = curIss?.solarLat ?? -19.5;
-      const solLon = curIss?.solarLon ?? 82.0;
+      const {
+        villageName: vName,
+        literacyRate: lit,
+        femaleLiteracyRate: fLit,
+        mobileCoveragePct: mob,
+        nearestSchoolKm: km,
+      } = dataRef.current;
+
+      const stageRetention = [
+        {
+          title: "01 · Anganwadi FLN",
+          sub: "Ages 3–6 Nutrition + Play",
+          pct: 92,
+          color: "#f59e0b",
+        },
+        {
+          title: "02 · Primary Class 1–5",
+          sub: "Mana Ooru – Mana Badi",
+          pct: Math.min(96, Math.round(lit + 18)),
+          color: "#06b6d4",
+        },
+        {
+          title: "03 · Girl Secondary 8–12",
+          sub: `${km.toFixed(1)} km reach · TGRTC Pass`,
+          pct: Math.min(94, Math.round(fLit + 8)),
+          color: "#f43f5e",
+        },
+        {
+          title: "04 · Career & TASK Skill",
+          sub: `${mob}% digital link · ePASS`,
+          pct: Math.min(92, Math.round((fLit + mob) / 2)),
+          color: "#10b981",
+        },
+      ];
 
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // Base Night Ocean
-      ctx.fillStyle = "#040916";
+      ctx.fillStyle = "#040915";
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle Lat/Lon Scientific Graticule
-      ctx.strokeStyle = "rgba(148, 163, 184, 0.14)";
+      // Subtle Engineering Grid
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.08)";
       ctx.lineWidth = 1;
-      for (let lon = -150; lon <= 150; lon += 30) {
-        const x = lonToX(lon, w);
+      for (let gx = 40; gx < w; gx += 48) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
+        ctx.moveTo(gx, 0);
+        ctx.lineTo(gx, h);
         ctx.stroke();
       }
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const y = latToY(lat, h);
+      for (let gy = 36; gy < h; gy += 48) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
+        ctx.moveTo(0, gy);
+        ctx.lineTo(w, gy);
         ctx.stroke();
       }
 
-      // Simplified World Continents Silhouettes (for clear STEM orbital orientation)
-      const continents: [number, number][][] = [
-        // Americas
-        [[70, -165], [68, -95], [48, -55], [25, -80], [10, -78], [-52, -70], [-20, -40], [10, -60], [28, -110], [52, -135]],
-        // Eurasia + India
-        [[70, -10], [72, 160], [50, 140], [22, 115], [8, 102], [20, 88], [8, 77], [24, 66], [15, 42], [35, 34], [38, -8]],
-        // Africa
-        [[35, -6], [30, 32], [12, 50], [-34, 24], [-30, 15], [4, 6], [14, -17]],
-        // Australia
-        [[-12, 130], [-25, 153], [-38, 145], [-34, 115], [-20, 115]],
-      ];
-      continents.forEach((poly) => {
+      // Header Label
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText(
+        `${vName.toUpperCase()} · STUDENT LEARNING & CAREER TRANSITION CORRIDOR`,
+        18,
+        24
+      );
+
+      const padX = 28;
+      const usableW = w - padX * 2;
+      const stepW = usableW / 4;
+      const midY = h * 0.52;
+
+      // Connector Track
+      const trackStart = padX + stepW * 0.5;
+      const trackEnd = padX + stepW * 3.5;
+      ctx.strokeStyle = "rgba(255,255,255,0.16)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(trackStart, midY);
+      ctx.lineTo(trackEnd, midY);
+      ctx.stroke();
+
+      // Animated Student Progress Pulses along track
+      for (let p = 0; p < 7; p++) {
+        const phase = ((tick * 0.006 + p / 7) % 1);
+        const px = trackStart + phase * (trackEnd - trackStart);
         ctx.beginPath();
-        poly.forEach(([lt, ln], i) => {
-          const px = lonToX(ln, w);
-          const py = latToY(lt, h);
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        });
-        ctx.closePath();
-        ctx.fillStyle = "rgba(56, 189, 248, 0.14)";
+        ctx.arc(px, midY, 4, 0, Math.PI * 2);
+        ctx.fillStyle =
+          phase < 0.33
+            ? "#f59e0b"
+            : phase < 0.66
+            ? "#f43f5e"
+            : "#10b981";
         ctx.fill();
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.38)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      });
-
-      // Real-Time Solar Illumination Glow Centered at Sub-Solar Coordinate
-      const sx = lonToX(solLon, w);
-      const sy = latToY(solLat, h);
-      const dayGlow = ctx.createRadialGradient(sx, sy, 10, sx, sy, w * 0.44);
-      dayGlow.addColorStop(0, "rgba(251, 191, 36, 0.28)");
-      dayGlow.addColorStop(0.55, "rgba(251, 191, 36, 0.08)");
-      dayGlow.addColorStop(1, "rgba(4, 9, 22, 0)");
-      ctx.fillStyle = dayGlow;
-      ctx.fillRect(0, 0, w, h);
-
-      // Sub-Solar Icon
-      ctx.beginPath();
-      ctx.arc(sx, sy, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#fbbf24";
-      ctx.fill();
-      ctx.fillStyle = "#fde68a";
-      ctx.font = "10px Consolas, monospace";
-      ctx.fillText("SUN OVERHEAD", sx + 10, sy + 3);
-
-      // Sinusoidal 51.6° Inclination Orbital Ground Track passing through current ISS position
-      const phaseOffset = Math.asin(Math.max(-1, Math.min(1, issLat / 51.6)));
-      ctx.beginPath();
-      for (let step = -180; step <= 180; step += 3) {
-        const lon = step;
-        const radShift = ((lon - issLon) * Math.PI) / 180;
-        const lat = 51.6 * Math.sin(phaseOffset + radShift);
-        const px = lonToX(lon, w);
-        const py = latToY(lat, h);
-        if (step === -180) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = "rgba(167, 139, 250, 0.65)";
-      ctx.lineWidth = 1.6;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
 
-      // Village Pin (Telangana)
-      const vx = lonToX(vLon, w);
-      const vy = latToY(vLat, h);
-      ctx.beginPath();
-      ctx.arc(vx, vy, 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = "#10b981";
-      ctx.fill();
-      ctx.fillStyle = "#6ee7b7";
-      ctx.font = "bold 10.5px Calibri, sans-serif";
-      ctx.fillText(vName.slice(0, 18), vx + 8, vy + 3);
+      // 4 Stage Nodes
+      stageRetention.forEach((st, idx) => {
+        const cx = padX + stepW * (idx + 0.5);
+        const boxW = Math.min(185, stepW - 18);
+        const boxH = 128;
+        const bx = cx - boxW / 2;
+        const by = midY - boxH / 2;
 
-      // Live ISS Position + Radar Visibility Footprint
-      const ix = lonToX(issLon, w);
-      const iy = latToY(issLat, h);
-      const pulse = prefersReduced ? 0 : (Math.sin(tick * 0.08) + 1) * 5;
+        ctx.fillStyle = "#081122";
+        ctx.fillRect(bx, by, boxW, boxH);
+        ctx.strokeStyle = st.color;
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(bx, by, boxW, boxH);
 
-      ctx.beginPath();
-      ctx.arc(ix, iy, 28 + pulse, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(167, 139, 250, 0.14)";
-      ctx.fill();
-      ctx.strokeStyle = "rgba(167, 139, 250, 0.7)";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
+        // Node Title
+        ctx.fillStyle = st.color;
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText(st.title, bx + 10, by + 20);
 
-      // ISS Solar Array Glyph
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(ix - 9, iy - 3, 5, 6);
-      ctx.fillRect(ix + 4, iy - 3, 5, 6);
-      ctx.fillStyle = "#c4b5fd";
-      ctx.fillRect(ix - 3, iy - 2, 6, 4);
+        ctx.fillStyle = "rgba(226, 232, 240, 0.72)";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(st.sub, bx + 10, by + 37);
 
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 11px Consolas, monospace";
-      ctx.fillText(`ISS (${issLat}°, ${issLon}°)`, ix + 14, iy - 8);
+        // Percentage Gauge
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 22px monospace";
+        ctx.fillText(`${st.pct}%`, bx + 10, by + 76);
+
+        ctx.fillStyle = "rgba(148,163,184,0.8)";
+        ctx.font = "10px sans-serif";
+        ctx.fillText("Cohort Transition", bx + 10, by + 93);
+
+        // Progress Bar at bottom of node
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        ctx.fillRect(bx + 10, by + 106, boxW - 20, 6);
+        ctx.fillStyle = st.color;
+        ctx.fillRect(bx + 10, by + 106, ((boxW - 20) * st.pct) / 100, 6);
+      });
 
       ctx.restore();
       if (!prefersReduced) {
@@ -269,33 +261,30 @@ function StemSkyTrackerCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-[300px] sm:h-[330px] rounded-lg border border-white/15 bg-[#040916] block cursor-crosshair"
+      className="w-full h-[270px] sm:h-[290px] border border-white/15 bg-[#040915] block"
     />
   );
 }
 
 export default function EducationStemSkyObservatory({
   village,
+  mobileCoveragePct: mobileProp,
 }: {
   village: SectorInsightsVillage | null;
+  mobileCoveragePct?: number;
 }) {
   const [vLat, vLon] = useMemo(() => getLatLon(village), [village]);
-  const [iss, setIss] = useState<IssTelemetry | null>(null);
-  const [sun, setSun] = useState<SunTelemetry | null>(null);
+  const [weather, setWeather] = useState<WeatherTelemetry | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [digitalSkillPct, setDigitalSkillPct] = useState<number>(65);
-  const [femaleCompletionPct, setFemaleCompletionPct] = useState<number>(80);
+  const [digitalSkillPct, setDigitalSkillPct] = useState<number>(68);
+  const [femaleCompletionPct, setFemaleCompletionPct] = useState<number>(84);
 
-  const fetchStemFeeds = useCallback(async () => {
+  const fetchDaylightTelemetry = useCallback(async () => {
     setLoading(true);
     try {
-      const [iRes, wRes] = await Promise.all([
-        fetch("/api/telemetry/iss"),
-        fetch(`/api/telemetry/weather?lat=${vLat}&lon=${vLon}`),
-      ]);
-      if (iRes.ok) setIss((await iRes.json()) as IssTelemetry);
-      if (wRes.ok) setSun((await wRes.json()) as SunTelemetry);
+      const wRes = await fetch(`/api/telemetry/weather?lat=${vLat}&lon=${vLon}`);
+      if (wRes.ok) setWeather((await wRes.json()) as WeatherTelemetry);
     } catch {
       // Handled gracefully
     } finally {
@@ -304,107 +293,142 @@ export default function EducationStemSkyObservatory({
   }, [vLat, vLon]);
 
   useEffect(() => {
-    void fetchStemFeeds();
-  }, [fetchStemFeeds]);
+    void fetchDaylightTelemetry();
+  }, [fetchDaylightTelemetry]);
 
-  const distanceToIssKm = useMemo(() => {
-    if (!iss) return 0;
-    return haversineKm(vLat, vLon, iss.latitude, iss.longitude);
-  }, [iss, vLat, vLon]);
+  const literacyRate = village?.education.literacyRate ?? 66.5;
+  const femaleLiteracyRate = village?.education.femaleLiteracyRate ?? 57.9;
+  const genderGap = Number(Math.max(0, literacyRate - femaleLiteracyRate).toFixed(1));
+  const mobileCoveragePct = mobileProp ?? 62.0;
+  const nearestSchoolKm = village?.education.nearestSchoolKm ?? 1.8;
+  const nearestSchoolName = village?.education.nearestSchoolName ?? "ZPHS Mandal High School";
 
   // Interactive 2026-2047 Education Income Multiplier Curve
   const learningProjection = useMemo(() => {
-    const baseLit = village?.education.literacyRate ?? 66;
     const years = [2026, 2030, 2034, 2038, 2042, 2047];
     return years.map((yr, idx) => {
       const frac = idx / (years.length - 1);
       const lift = (digitalSkillPct * 0.45 + femaleCompletionPct * 0.55) / 100;
-      const baselineIndex = Math.round(baseLit + frac * 11);
-      const empoweredIndex = Math.min(99, Math.round(baseLit + frac * (28 * lift + 8)));
+      const baselineIndex = Math.round(literacyRate + frac * 11);
+      const empoweredIndex = Math.min(99, Math.round(literacyRate + frac * (28 * lift + 8)));
       return {
         year: String(yr),
         baseline: baselineIndex,
         empowered: empoweredIndex,
       };
     });
-  }, [village?.education.literacyRate, digitalSkillPct, femaleCompletionPct]);
+  }, [literacyRate, digitalSkillPct, femaleCompletionPct]);
 
   return (
     <div className="space-y-6">
-      {/* Live ISS Space Lab & Earth-Sun Telemetry */}
-      <section className="jd-keep-dark rounded-xl border border-white/15 bg-[#060b18] text-white p-6 space-y-5">
+      {/* TELANGANA STUDENT PIPELINE, SCHOLARSHIP & DIGITAL CAREER OBSERVATORY */}
+      <section className="jd-keep-dark border border-white/15 bg-[#060b18] text-white p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
-            <div className="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
-              <Satellite size={14} />
-              <span>LIVE STEM SPACE &amp; ASTRONOMY CLASSROOM · NORAD 25544</span>
+            <div className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+              <Laptop size={14} />
+              <span>TELANGANA SCHOOL-TO-CAREER, SCHOLARSHIP &amp; DIGITAL OBSERVATORY</span>
             </div>
             <h3 className="mt-1 text-xl font-bold text-white">
-              Live International Space Station Orbit &amp; Solar Day-Night Map
+              Village Learning Transition, Female Parity &amp; Career Pipeline
             </h3>
             <p className="mt-0.5 text-xs text-white/65">
-              {iss?.source ?? "Real-time Orbital Telemetry"} — watch Earth&apos;s sunlight terminator and track the ISS live relative to{" "}
-              <span className="text-white font-medium">{village?.villageName ?? "Telangana"}</span>.
+              Real-time progression diagnostics for{" "}
+              <span className="text-white font-medium">{village?.villageName ?? "Telangana Settlement"}</span>{" "}
+              linking Anganwadi FLN, {nearestSchoolName}, T-SAT Vidya digital access, and TS ePASS career retention.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => void fetchStemFeeds()}
+            onClick={() => void fetchDaylightTelemetry()}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-medium text-white whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-medium text-white whitespace-nowrap shrink-0"
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-            Update ISS Orbit
+            Refresh Campus Conditions
           </button>
         </div>
 
-        <StemSkyTrackerCanvas
-          iss={iss}
-          villageLat={vLat}
-          villageLon={vLon}
-          villageName={village?.villageName ?? "Telangana Village"}
+        <StudentPipelineCanvas
+          villageName={village?.villageName ?? "Telangana Settlement"}
+          literacyRate={literacyRate}
+          femaleLiteracyRate={femaleLiteracyRate}
+          mobileCoveragePct={mobileCoveragePct}
+          nearestSchoolKm={nearestSchoolKm}
         />
 
-        {/* 4 Live Orbital & Solar Telemetry Gauges */}
+        {/* 4 Actionable Education Gauges */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono tabular-nums">
-          <div className="rounded-lg border border-white/10 bg-black/40 p-3">
-            <div className="text-[10px] text-white/55 font-sans">ISS Altitude &amp; Speed</div>
-            <div className="mt-1 text-lg font-bold text-violet-300">
-              {iss?.altitudeKm ?? "422"} km
+          <div className="border border-white/10 bg-black/40 p-3">
+            <div className="text-[11px] text-white/55 font-sans">Female Literacy &amp; Parity Gap</div>
+            <div className="mt-1 text-lg font-bold text-rose-300">
+              {femaleLiteracyRate}%
             </div>
-            <div className="text-[10px] text-white/60">
-              {(iss?.velocityKmh ?? 27580).toLocaleString("en-IN")} km/h
+            <div className="text-[11px] text-white/60 font-sans">
+              Gap vs Overall: {genderGap} pts
             </div>
           </div>
 
-          <div className="rounded-lg border border-white/10 bg-black/40 p-3">
-            <div className="text-[10px] text-white/55 font-sans">Ground Distance to Village</div>
+          <div className="border border-white/10 bg-black/40 p-3">
+            <div className="text-[11px] text-white/55 font-sans">Nearest Secondary School</div>
+            <div className="mt-1 text-lg font-bold text-cyan-300">
+              {nearestSchoolKm.toFixed(1)} km
+            </div>
+            <div className="text-[11px] text-white/60 font-sans truncate">
+              {nearestSchoolName}
+            </div>
+          </div>
+
+          <div className="border border-white/10 bg-black/40 p-3">
+            <div className="text-[11px] text-white/55 font-sans">T-SAT &amp; Telecom Reach</div>
             <div className="mt-1 text-lg font-bold text-emerald-300">
-              {distanceToIssKm.toLocaleString("en-IN")} km
+              {mobileCoveragePct}%
             </div>
-            <div className="text-[10px] text-white/60 capitalize">
-              Status: {iss?.visibility ?? "daylight"}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-black/40 p-3">
-            <div className="text-[10px] text-white/55 font-sans">Live Solar Irradiance</div>
-            <div className="mt-1 text-lg font-bold text-amber-300">
-              {sun?.current?.solarRadiationWm2 ?? "610"} W/m²
-            </div>
-            <div className="text-[10px] text-white/60">
-              Sun lat: {iss?.solarLat ?? "-19.5"}°
+            <div className="text-[11px] text-white/60 font-sans">
+              Household phone readiness
             </div>
           </div>
 
-          <div className="rounded-lg border border-white/10 bg-black/40 p-3">
-            <div className="text-[10px] text-white/55 font-sans">Village Sunrise / Sunset</div>
-            <div className="mt-1 text-sm font-bold text-cyan-300">
-              {sun?.agroHydro?.sunriseIso ? sun.agroHydro.sunriseIso.slice(11, 16) : "06:18"} /{" "}
-              {sun?.agroHydro?.sunsetIso ? sun.agroHydro.sunsetIso.slice(11, 16) : "17:42"}
+          <div className="border border-white/10 bg-black/40 p-3">
+            <div className="text-[11px] text-white/55 font-sans">Campus Daylight &amp; Heat</div>
+            <div className="mt-1 text-sm font-bold text-amber-300">
+              {weather?.agroHydro?.sunriseIso ? weather.agroHydro.sunriseIso.slice(11, 16) : "06:18"} –{" "}
+              {weather?.agroHydro?.sunsetIso ? weather.agroHydro.sunsetIso.slice(11, 16) : "17:42"} IST
             </div>
-            <div className="text-[10px] text-white/60">IST Local Horizon</div>
+            <div className="text-[11px] text-white/60 font-sans">
+              {weather?.current?.tempC ?? 29}°C ambient · Evening solar library window
+            </div>
           </div>
+        </div>
+
+        {/* Telangana Scholarship & Career Bridges */}
+        <div className="grid md:grid-cols-3 gap-3 pt-1">
+          {[
+            {
+              title: "TS ePASS & Post-Matric Scholarships",
+              detail: "Direct tuition & hostel fee reimbursement preventing Class 10–Degree financial dropouts.",
+              tag: "Financial Retention",
+            },
+            {
+              title: "TASK & Telangana Skill University",
+              detail: "Free Finishing School in coding, EV servicing, agritech drones, and food-tech QC for rural graduates.",
+              tag: "Youth Employability",
+            },
+            {
+              title: "T-SAT Vidya & Mana Ooru Smart Labs",
+              detail: "Bilingual Telugu/English live JEE/EAPCET/polytechnic coaching beamed free to every ZPHS & KGBV.",
+              tag: "Zero-Cost Coaching",
+            },
+          ].map((card) => (
+            <div key={card.title} className="border border-white/10 bg-[#081020] p-4 space-y-1.5">
+              <div className="text-[11px] font-medium text-amber-300 flex items-center gap-1.5">
+                <Award size={12} />
+                <span>{card.tag}</span>
+              </div>
+              <div className="text-sm font-semibold text-white">{card.title}</div>
+              <p className="text-xs leading-5 text-white/65">{card.detail}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -439,7 +463,7 @@ export default function EducationStemSkyObservatory({
               <label className="block space-y-1">
                 <div className="flex justify-between font-mono">
                   <span className="text-slate-700 dark:text-white/80">Tinkering &amp; Digital Lab Access</span>
-                  <span className="font-bold text-violet-600 dark:text-violet-300 tabular-nums">{digitalSkillPct}%</span>
+                  <span className="font-bold text-cyan-600 dark:text-cyan-300 tabular-nums">{digitalSkillPct}%</span>
                 </div>
                 <input
                   type="range"
@@ -447,7 +471,7 @@ export default function EducationStemSkyObservatory({
                   max={100}
                   value={digitalSkillPct}
                   onChange={(e) => setDigitalSkillPct(Number(e.target.value))}
-                  className="w-full accent-violet-500 cursor-pointer"
+                  className="w-full accent-cyan-500 cursor-pointer"
                 />
               </label>
             </div>
@@ -470,9 +494,9 @@ export default function EducationStemSkyObservatory({
                 <Area
                   type="monotone"
                   dataKey="empowered"
-                  name="STEM + Retention Target"
-                  stroke="#a78bfa"
-                  fill="rgba(167,139,250,0.24)"
+                  name="Career & Retention Target"
+                  stroke="#fb7185"
+                  fill="rgba(251,113,133,0.22)"
                   strokeWidth={2.5}
                 />
                 <Area

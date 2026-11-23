@@ -33,6 +33,7 @@ import {
   Moon,
   Network,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -98,6 +99,14 @@ import LivelihoodAgroFoodSubPortal from "../components/LivelihoodAgroFoodSubPort
 import WaterNationalTelanganaCapacity from "../components/WaterNationalTelanganaCapacity";
 import WaterConservationSubPortal from "../components/WaterConservationSubPortal";
 import YouthHealthPreventionSubPortal from "../components/YouthHealthPreventionSubPortal";
+import EducationTransformationSubPortal from "../components/EducationTransformationSubPortal";
+import EnvironmentClimateActionSubPortal from "../components/EnvironmentClimateActionSubPortal";
+import OverviewDisasterPreparedness from "../components/OverviewDisasterPreparedness";
+import {
+  SectorAiCommandTheater,
+  type AiHorizon,
+  type AiPersona,
+} from "../components/ai/SectorAiCommandTheater";
 
 const DevelopmentMap = dynamic(
   () => import("../components/gis/DevelopmentMap"),
@@ -1582,7 +1591,8 @@ export default function Home() {
 
   async function runAgent(
     query: string,
-    currentSection: Section = section
+    currentSection: Section = section,
+    opts?: { persona?: string; horizon?: string }
   ) {
     if (!query.trim() || agentRunning) return;
 
@@ -1611,8 +1621,11 @@ export default function Home() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            query: `${query.trim()}\n\nFocus: ${currentSection === "overview" ? "development" : currentSection}. Prepare a draft committee-style evidence review and policy options with relevant official scheme references where supported. Clearly separate observed data, screening, future readiness horizons, recommendations, and missing evidence. Do not claim scheme eligibility, coverage, or approvals.`,
+            query: query.trim(),
             village_code: String(villageCode),
+            sector: currentSection,
+            persona: opts?.persona,
+            horizon: opts?.horizon,
           }),
         }
       );
@@ -1791,6 +1804,32 @@ export default function Home() {
         setPanel(initialPanel);
       },
       mode
+    );
+  }
+
+  function openSubPortal(targetDomain: Section) {
+    if (targetDomain === section && panel === "map") {
+      const anchor = document.getElementById("sector-subportal-anchor");
+      if (anchor) {
+        const top = anchor.getBoundingClientRect().top + window.scrollY - 84;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
+      return;
+    }
+
+    triggerTransition(
+      () => {
+        setSection(targetDomain);
+        setPanel("map");
+        window.setTimeout(() => {
+          const anchor = document.getElementById("sector-subportal-anchor");
+          if (anchor) {
+            const top = anchor.getBoundingClientRect().top + window.scrollY - 84;
+            window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+          }
+        }, 180);
+      },
+      "map"
     );
   }
 
@@ -2323,6 +2362,7 @@ export default function Home() {
               onSection={(next, initialPanel) =>
                 changeSection(next, initialPanel)
               }
+              onOpenSubPortal={(target) => openSubPortal(target)}
               onAI={() => openPanel("ai")}
               onGeneratePolicy={() => {
                 openPanel("ai");
@@ -2333,7 +2373,7 @@ export default function Home() {
               }}
               aiPanelOpen={panel === "ai"}
               agentRunning={agentRunning}
-              onRunAI={(query) => runAgent(query, "overview")}
+              onRunAI={(query, opts) => runAgent(query, "overview", opts)}
               selectedVillage={selectedVillage}
               featuredVillages={featuredVillages}
               onSelectVillage={(code) => loadVillage(code, true)}
@@ -2382,8 +2422,8 @@ export default function Home() {
               agentResult={agentResult}
               agentRunning={agentRunning}
               onSelectVillage={(code) => loadVillage(code, true)}
-              onRunAgent={(query) =>
-                runAgent(query, section)
+              onRunAgent={(query, opts) =>
+                runAgent(query, section, opts)
               }
               readinessChecks={readinessChecks}
               onToggleReadinessCheck={toggleReadinessCheck}
@@ -2747,6 +2787,7 @@ function CinematicTransition({
 
 function OverviewScreen({
   onSection,
+  onOpenSubPortal,
   onAI,
   onGeneratePolicy,
   aiPanelOpen,
@@ -2764,11 +2805,12 @@ function OverviewScreen({
   insightsVillage,
 }: {
   onSection: (section: Section, initialPanel?: Panel | null) => void;
+  onOpenSubPortal: (section: Section) => void;
   onAI: () => void;
   onGeneratePolicy: () => void;
   aiPanelOpen: boolean;
   agentRunning: boolean;
-  onRunAI: (query: string) => void;
+  onRunAI: (query: string, opts?: { persona?: AiPersona; horizon?: AiHorizon }) => void;
   selectedVillage: VillageData | null;
   featuredVillages: VillageSearchResult[];
   onSelectVillage: (code: string) => void;
@@ -2889,6 +2931,14 @@ function OverviewScreen({
                 <span>2026–2047 Prediction Tool</span>
               </a>
 
+              <a
+                href="#disaster-preparedness-section"
+                className="px-6 py-3 border border-amber-400/45 bg-amber-500/15 hover:bg-amber-500/25 transition flex items-center gap-2.5 text-xs font-semibold text-amber-100 whitespace-nowrap"
+              >
+                <ShieldAlert size={15} className="text-amber-300" />
+                <span>Telangana Disaster Preparedness</span>
+              </a>
+
             </div>
 
           </div>
@@ -2924,6 +2974,105 @@ function OverviewScreen({
 
           </div>
 
+        </div>
+
+        {/* ALL 5 SECTOR SUB-PORTALS UNIFIED COMMAND BAR (RIGHT BELOW TITLE & HEADINGS) */}
+        <div className="relative z-10 border-t border-white/10 bg-[#050912]/90">
+          <div className="max-w-7xl mx-auto px-8 py-7 space-y-4">
+            <div>
+              <div className="text-xs font-medium text-orange-300">
+                Interactive Action Sub-Portals · Single-Click Launch
+              </div>
+              <h3 className="text-lg font-semibold text-white">
+                Explore All 5 Sector Transformation Sub-Portals from One Place
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {(
+                [
+                  {
+                    sector: "education" as Section,
+                    num: "01",
+                    name: "Education Sub-Portal",
+                    portalTitle: "Vidya—Sankalp 2047",
+                    focus: "Girls' transit, Smart Labs, TS ePASS & TASK careers",
+                    color: "#f43f5e",
+                    Icon: GraduationCap,
+                  },
+                  {
+                    sector: "health" as Section,
+                    num: "02",
+                    name: "Health Sub-Portal",
+                    portalTitle: "Yuva—Rakshak",
+                    focus: "Student suicide prevention (14416), CVD & Diabetes",
+                    color: "#10b981",
+                    Icon: HeartPulse,
+                  },
+                  {
+                    sector: "water" as Section,
+                    num: "03",
+                    name: "Water Sub-Portal",
+                    portalTitle: "Jala—Punarjanma",
+                    focus: "10–15 floor RWH + Greywater architecture & tanks",
+                    color: "#06b6d4",
+                    Icon: Droplets,
+                  },
+                  {
+                    sector: "livelihood" as Section,
+                    num: "04",
+                    name: "Livelihood Sub-Portal",
+                    portalTitle: "Krishi—Samruddhi",
+                    focus: "2× Farmer Income, Apples & 8.9% GVA Food Processing",
+                    color: "#ec4899",
+                    Icon: BriefcaseBusiness,
+                  },
+                  {
+                    sector: "environment" as Section,
+                    num: "05",
+                    name: "Environment Sub-Portal",
+                    portalTitle: "Haritha—NetZero",
+                    focus: "PM-KUSUM solar, smokeless kitchens & cooling canopy",
+                    color: "#84cc16",
+                    Icon: Leaf,
+                  },
+                ]
+              ).map((sp) => {
+                const Icon = sp.Icon;
+                return (
+                  <button
+                    key={sp.sector}
+                    type="button"
+                    onClick={() => onOpenSubPortal(sp.sector)}
+                    className="group text-left border border-white/12 bg-[#080d17] hover:bg-[#0d1525] hover:border-white/30 p-4 transition flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 text-xs font-mono tabular-nums">
+                        <span style={{ color: sp.color }}>{sp.num} · {sp.name}</span>
+                        <Icon size={15} style={{ color: sp.color }} />
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-white">
+                        {sp.portalTitle}
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-white/55">
+                        {sp.focus}
+                      </p>
+                    </div>
+                    <div
+                      className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] font-medium"
+                      style={{ color: sp.color }}
+                    >
+                      <span>Open Sub-Portal</span>
+                      <ArrowRight
+                        size={12}
+                        className="group-hover:translate-x-1 transition-transform"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
       </section>
@@ -3226,6 +3375,16 @@ function OverviewScreen({
         <HyperlocalWeatherObservatory village={insightsVillage} />
         <MandiMarketObservatory village={insightsVillage} />
       </section>
+
+      {/* =================================================
+          TELANGANA DISASTER PREPAREDNESS & MULTI-HAZARD OBSERVATORY
+      ================================================= */}
+      <OverviewDisasterPreparedness
+        activeDistrict={insightsVillage?.districtName ?? selectedVillage?.profile.district_name}
+        activeVillage={insightsVillage?.villageName ?? selectedVillage?.profile.village_name}
+        currentTempC={insightsVillage?.environment.currentTempC}
+        rain7dMm={insightsVillage?.environment.forecastRainMm}
+      />
 
       {/* =================================================
           ANCIENT CIVILISATIONAL WISDOM ACROSS ALL SECTORS
@@ -3842,7 +4001,7 @@ function DomainScreen({
   villageError: string;
   agentResult: AgentResult | null;
   agentRunning: boolean;
-  onRunAgent: (query: string) => void;
+  onRunAgent: (query: string, opts?: { persona?: AiPersona; horizon?: AiHorizon }) => void;
   readinessChecks: Record<string, boolean>;
   onToggleReadinessCheck: (key: string) => void;
   onLaunchReadinessReview: (domain: FutureReadinessDomain) => void;
@@ -4961,9 +5120,10 @@ function DomainMap({
           )}
 
           <div
-            className={
+            id="sector-subportal-anchor"
+            className={`scroll-mt-24 ${
               livelihoodView === "gis_subportal" ? "xl:col-span-7" : "col-span-1"
-            }
+            }`}
           >
             <LivelihoodAgroFoodSubPortal
               village={insightsVillage}
@@ -5060,18 +5220,29 @@ function DomainMap({
       {/* Sector-Specific Directory, Groundwater Observatory, Hospital Matrix & Visual Solution Plans */}
       {activeDomain === "education" && (
         <div className="space-y-8">
+          <EducationTransformationSubPortal
+            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Settlement"}
+            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+            baseLiteracyPct={insightsVillage?.education.literacyRate ?? selectedVillage?.education.literacy_rate ?? 66.5}
+            baseFemaleLitPct={insightsVillage?.education.femaleLiteracyRate ?? selectedVillage?.education.female_literacy_rate ?? 57.9}
+          />
           <EducationInstitutionsPanel lang={lang} village={insightsVillage} />
-          <EducationStemSkyObservatory village={insightsVillage} />
+          <EducationStemSkyObservatory
+            village={insightsVillage}
+            mobileCoveragePct={selectedVillage?.education.mobile_coverage_pct}
+          />
           <SectorGoodActionsPanel sector="education" village={insightsVillage} />
         </div>
       )}
       {activeDomain === "water" && (
         <div className="space-y-8">
           <WaterNationalTelanganaCapacity />
-          <WaterConservationSubPortal
-            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Settlement"}
-            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
-          />
+          <div id="sector-subportal-anchor" className="scroll-mt-24">
+            <WaterConservationSubPortal
+              villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Settlement"}
+              districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+            />
+          </div>
           <WaterGroundwaterPanel
             lang={lang}
             village={insightsVillage}
@@ -5083,10 +5254,12 @@ function DomainMap({
       )}
       {activeDomain === "health" && (
         <div className="space-y-8">
-          <YouthHealthPreventionSubPortal
-            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Ward / Campus Cluster"}
-            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
-          />
+          <div id="sector-subportal-anchor" className="scroll-mt-24">
+            <YouthHealthPreventionSubPortal
+              villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Ward / Campus Cluster"}
+              districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+            />
+          </div>
           <HealthcareServiceMatrixPanel
             lang={lang}
             village={insightsVillage}
@@ -5099,6 +5272,14 @@ function DomainMap({
       )}
       {activeDomain === "environment" && (
         <div className="space-y-8">
+          <EnvironmentClimateActionSubPortal
+            villageName={insightsVillage?.villageName ?? selectedVillage?.profile.village_name ?? "Telangana Settlement"}
+            districtName={insightsVillage?.districtName ?? selectedVillage?.profile.district_name ?? "Telangana"}
+            baseBiomassPct={insightsVillage?.environment.solidBiomassPct ?? selectedVillage?.environment.solid_biomass_fuel_pct ?? 55}
+            baseSolarMJ={insightsVillage?.environment.avgSolarMj ?? selectedVillage?.environment.avg_solar_radiation_mj_m2 ?? 18.5}
+            basePm25={insightsVillage?.environment.pm25 ?? selectedVillage?.environment.pm2_5 ?? 24}
+            baseTempC={insightsVillage?.environment.currentTempC ?? selectedVillage?.environment.current_temp_c ?? 32}
+          />
           <EnvironmentWaterbodiesPanel lang={lang} village={insightsVillage} />
           <EnvironmentEarthObservatory village={insightsVillage} />
           <SectorGoodActionsPanel sector="environment" village={insightsVillage} />
@@ -5455,170 +5636,23 @@ function DomainAI({
   onSelectVillage?: (code: string) => void;
   agentResult: AgentResult | null;
   running: boolean;
-  onRun: (query: string) => void;
+  onRun: (query: string, opts?: { persona?: AiPersona; horizon?: AiHorizon }) => void;
 }) {
-  const [localQuery, setLocalQuery] =
-    useState(
-      "Review this village's available indicators across Education, Health, Water, Livelihood, and Environment. Identify evidence-backed priorities, propose practical actions, and formulate a village-specific Telangana & Central scheme policy charter and draft committee report."
-    );
-
-  const sector = config.shortTitle.toLowerCase();
-  const hasReadiness =
-    sector === "health" || sector === "water" || sector === "environment";
-
-  const suggestedQueries = [
-    {
-      label: `Review ${sector} evidence`,
-      query: `Review available ${sector} evidence for this village. State the observed measures, what they can and cannot establish, and the most useful next verification steps.`,
-    },
-    {
-      label: `Formulate ${sector} policy`,
-      query: `Prepare a draft ${sector} policy formulation from available Telangana evidence. Identify practical interventions, relevant Telangana State & Central government programmes to verify, accountable implementation steps, measurable indicators, and missing data. Do not claim eligibility or scheme coverage.`,
-    },
-    ...(hasReadiness
-      ? [
-          {
-            label: `Assess ${sector} future readiness`,
-            query:
-              FUTURE_READINESS[sector as FutureReadinessDomain].aiPrompt,
-          },
-        ]
-      : []),
-    {
-      label: "Draft committee report",
-      query: `Draft a committee-style technical review of available ${sector} indicators for this village: scope, evidence table, interpretation, limitations, priority actions, government programme options with official sources, implementation plan, monitoring framework, and decisions requiring human approval. Clearly label it as a draft, not an official committee finding.`,
-    },
-  ];
-
   return (
     <div
       id="ai-intelligence-panel"
-      className="domain-ai-panel animate-[fadeUp_.4s_ease-out] space-y-5 scroll-mt-24"
+      className="domain-ai-panel animate-[fadeUp_.4s_ease-out] space-y-6 scroll-mt-24"
     >
-
-      <PanelHeader
-        icon={<Brain size={18} />}
-        eyebrow="GEMINI LLM DEVELOPMENT INTELLIGENCE · TELANGANA"
-        title={config.aiTitle}
-        description="Synthesises Telangana village indicators across all 5 sectors to generate interactive multi-coloured dashboards, village policy formulations, and draft committee reports."
+      <SectorAiCommandTheater
+        sectorKey={config.shortTitle.toLowerCase()}
+        aiTitle={config.aiTitle}
+        accentColor={config.accent}
+        selectedVillage={selectedVillage}
+        featuredVillages={featuredVillages}
+        onSelectVillage={onSelectVillage}
+        onRunFullDashboard={onRun}
+        runningFull={running}
       />
-
-      <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
-        <div className="border border-white/10 bg-[#070b11] p-7 md:p-8">
-
-          <div className="text-xs font-medium text-white/45">
-            Village-Level Planning Question
-          </div>
-
-          {!selectedVillage && (
-            <div className="mt-3 border border-orange-300/20 bg-orange-300/[0.04] p-4 space-y-3">
-              <p className="text-xs leading-6 text-white/70">
-                Select a Telangana village below (or via the top search bar / GIS map) before running intelligence:
-              </p>
-              {featuredVillages.length > 0 && onSelectVillage && (
-                <div className="flex flex-wrap gap-1.5">
-                  {featuredVillages.slice(0, 6).map((fv) => (
-                    <button
-                      key={fv.village_code}
-                      type="button"
-                      onClick={() => onSelectVillage(fv.village_code)}
-                      className="border border-orange-300/30 bg-orange-300/[0.08] px-2.5 py-1.5 text-xs text-orange-100 hover:bg-orange-300/[0.16] transition"
-                    >
-                      {fv.area_name} ({fv.district_name})
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {selectedVillage && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-orange-300/90">
-              <Target size={13} />
-              <span>
-                Active Settlement: <strong>{selectedVillage.profile.village_name}</strong> · {selectedVillage.profile.mandal_name} Mandal · {selectedVillage.profile.district_name} District (Code {selectedVillage.profile.village_code})
-              </span>
-            </div>
-          )}
-
-          <textarea
-            value={localQuery}
-            onChange={(e) =>
-              setLocalQuery(e.target.value)
-            }
-            placeholder={`Ask a ${config.shortTitle.toLowerCase()} development question...`}
-            className="mt-4 w-full h-36 resize-none bg-black/25 border border-white/10 p-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-orange-300/40"
-          />
-
-          <div className="mt-4">
-            <div className="text-xs font-medium text-white/40">
-              Suggested Evidence Prompts
-            </div>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {suggestedQueries.map(({ label, query }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setLocalQuery(query)}
-                  className="border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/65 transition hover:border-orange-300/35 hover:bg-orange-300/[0.06] hover:text-orange-100"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={() =>
-              onRun(localQuery)
-            }
-            disabled={
-              running ||
-              !localQuery.trim()
-            }
-            className="domain-run-button mt-5 w-full py-3.5 border border-orange-300/30 bg-orange-300/[0.08] hover:bg-orange-300/[0.14] disabled:opacity-35 transition flex items-center justify-center gap-2.5 text-xs font-medium text-orange-100"
-          >
-
-            {running ? (
-              <>
-                <Loader2
-                  size={15}
-                  className="animate-spin"
-                />
-                <span>Analysing Available Evidence…</span>
-              </>
-            ) : (
-              <>
-                <Zap size={15} />
-                <span>Run Analysis &amp; Prepare Options</span>
-              </>
-            )}
-
-          </button>
-
-        </div>
-
-        <aside className="border border-white/10 bg-[#070b11] p-6">
-          <div className="text-xs font-medium text-cyan-200/80">
-            Execution Provenance
-          </div>
-          <h3 className="mt-2.5 text-lg font-medium">
-            Analysis runs against connected village evidence.
-          </h3>
-          <dl className="mt-5 space-y-4 text-xs leading-6">
-            <div>
-              <dt className="text-white/40">Village indicators</dt>
-              <dd className="text-white/75">Loaded from the JAN—DRISHTI backend</dd>
-            </div>
-            <div>
-              <dt className="text-white/40">Output scope</dt>
-              <dd className="text-white/75">
-                Textual evidence review, statistical summaries, GIS signals, future readiness options, and draft reports
-              </dd>
-            </div>
-          </dl>
-        </aside>
-      </div>
 
       {agentResult && (
         <AgentWorkspace
@@ -5626,7 +5660,6 @@ function DomainAI({
           running={running}
         />
       )}
-
     </div>
   );
 }
